@@ -96,11 +96,12 @@ No. The files must be on the same server as your WordPress installation. I have 
 == Changelog ==
 
 = 3.0 =
-* Replaced XMLPath with SimpleHTMLDOM library. This allows both jQuery-style selectors and URLs to be imported.
-* Use wp_kses() or wp_kses_post() for allowed HTML.
+* Replaced XMLPath with SimpleHTMLDOM library; add PHPCrawl library. This allows both jQuery-style selectors and URLs to be imported. URLs to XML sitemaps can also be used to import a whitelist of files, but gzipped and nested sitemap files are not yet supported.
+* Use wp_kses() or wp_kses_post() for allowed HTML instead of specifying tags in the options screen.
 * Options to import images, fix internal links, and preserve file slugs are now on by default.
-* Use get_allowed_mime_types() with filter 'html_import_allowed_mime_types' to specify document types to import.
-
+* Use get_allowed_mime_types() with filter 'html_import_allowed_mime_types' to specify document types to import instead of specifying MIME types in the options screen.
+* TODO: make the progress bar work
+* TODO: move content handler to an AJAX function so large sites can be processed more gracefully.
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.
 * Fixed bug where the page parent option displayed incorrectly in sites with no published pages.
