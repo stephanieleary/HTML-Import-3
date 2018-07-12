@@ -44,10 +44,11 @@ function html_import_options_page() { ?>
 
 	<div class="wp-filter">
 		<ul class="filter-links">
-			<li class-"html-import-options"><?php _e( 'Plugin Settings' ); ?></li>
+			<li class-"html-import-options"><a href="#html-import-settings-files"><?php _e( 'Plugin Settings' ); ?></a></li>
 		
-			<li class="html-import-export"><?php _e( 'Import/Export Plugin Settings' ); ?></li>
+			<li class="html-import-export"><a href="#html-import-settings-export"><?php _e( 'Import/Export Plugin Settings' ); ?></a></li>
 		</ul>
+	</div>
 		<?php
 		if ( $options['firstrun'] === true ) {
 		echo '<p>'.sprintf( __( 'Welcome to HTML Import! This is a complicated importer with many options. Please look through all the sections on this page before running your import.', 'import-html-pages' ), 'options-general.php?page=html-import.php' ).'</p>'; 
@@ -478,3 +479,114 @@ class HTML_Import_Walker_Category_Checklist extends Walker {
          $output .= "</li>\n";
      }
 }
+
+
+// options import/export
+
+
+function html_import_options_io_page() {
+
+	$options = get_option( 'html_import' ); ?>
+	<div class="wrap" id="html-import-settings-export">
+		<h2><?php _e('HTML Import Settings Import/Export'); ?></h2>
+
+		<div class="metabox-holder">
+			<div class="postbox one-half first">
+				<h3><span><?php _e( 'Export Settings' ); ?></span></h3>
+				<div class="inside">
+					<p><?php _e( 'Save your HTML Import options as a .json file.' ); ?></p>
+					<form method="post">
+						<p><input type="hidden" name="html_import_settings_io_action" value="export_settings" /></p>
+						<p>
+							<?php wp_nonce_field( 'html_import_settings_io', 'html_import_settings_io' ); ?>
+							<?php submit_button( __( 'Save' ), 'secondary', 'submit', false ); ?>
+						</p>
+					</form>
+				</div><!-- .inside -->
+			</div><!-- .postbox -->
+
+			<div class="postbox one-half">
+				<h3><span><?php _e( 'Import Settings' ); ?></span></h3>
+				<div class="inside">
+					<p><?php _e( 'Restore HTML Import options from a .json file.' ); ?></p>
+					<form method="post" enctype="multipart/form-data">
+						<p>
+							<input type="file" name="import_file"/>
+						</p>
+						<p>
+							<input type="hidden" name="html_import_settings_io_action" value="import_settings" />
+							<?php wp_nonce_field( 'html_import_settings_io_nonce', 'html_import_settings_io_nonce' ); ?>
+							<?php submit_button( __( 'Restore' ), 'secondary', 'submit', false ); ?>
+						</p>
+					</form>
+				</div><!-- .inside -->
+			</div><!-- .postbox -->
+		</div><!-- .metabox-holder -->
+
+	</div><!--end .wrap-->
+	<?php
+}
+
+/**
+ * Process a settings export that generates a .json file of the shop settings
+ */
+function html_import_do_settings_export() {
+
+	if( empty( $_POST['html_import_settings_io_action'] ) || 'export_settings' !== $_POST['html_import_settings_io_action'] )
+		return;
+
+	if( ! wp_verify_nonce( $_POST['html_import_settings_io'], 'html_import_settings_io' ) )
+		return;
+
+	if( ! current_user_can( 'manage_options' ) )
+		return;
+
+	$settings = get_option( 'html_import' );
+
+	ignore_user_abort( true );
+
+	nocache_headers();
+	header( 'Content-Type: application/json; charset=utf-8' );
+	header( 'Content-Disposition: attachment; filename=html-import-settings-' . date( 'd-m-Y' ) . '.json' );
+	header( "Expires: 0" );
+
+	echo json_encode( $settings );
+	exit;
+}
+add_action( 'admin_init', 'html_import_do_settings_export' );
+
+/**
+ * Process a settings import from a json file
+ */
+function html_import_do_settings_import() {
+
+	if( empty( $_POST['html_import_settings_io_action'] ) || 'import_settings' !== $_POST['html_import_settings_io_action'] )
+		return;
+
+	if( ! wp_verify_nonce( $_POST['html_import_settings_io_nonce'], 'html_import_settings_io_nonce' ) )
+		return;
+
+	if( ! current_user_can( 'manage_options' ) )
+		return;
+
+	$extension = end( explode( '.', $_FILES['import_file']['name'] ) );
+
+	if( $extension != 'json' ) {
+		wp_die( __( 'Please upload a valid .json file' ) );
+	}
+
+	$import_file = $_FILES['import_file']['tmp_name'];
+
+	if( empty( $import_file ) ) {
+		wp_die( __( 'Please upload a file to import' ) );
+	}
+
+	// Retrieve the settings from the file and convert the json object to an array.
+	$settings = (array) json_decode( file_get_contents( $import_file ) );
+
+	update_option( 'html_import', $settings );
+
+	wp_safe_redirect( admin_url( 'options-general.php?page=html-import' ) ); exit;
+
+}
+add_action( 'admin_init', 'html_import_do_settings_import' );
