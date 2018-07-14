@@ -47,7 +47,7 @@ function html_import_options_page() { ?>
 			?>
 
 			<h2 class="nav-tab-wrapper">
-	            <a href="<?php echo add_query_arg( 'tab', 'html-import-settings-files' ); ?>" class="nav-tab  <?php echo $active_tab == '' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Plugin Settings' ); ?></a>
+	            <a href="<?php echo add_query_arg( 'tab', 'html-import-settings-files' ); ?>" class="nav-tab  <?php echo $active_tab == 'html-import-settings-files' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Plugin Settings' ); ?></a>
 				<a href="<?php echo add_query_arg( 'tab', 'html-import-settings-redirects' ); ?>" class="nav-tab  <?php echo $active_tab == 'html-import-settings-redirects' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Generate Redirects' ); ?></a>
 	            <a href="<?php echo add_query_arg( 'tab', 'html-import-settings-export' ); ?>" class="nav-tab   <?php echo $active_tab == 'html-import-settings-export' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Import/Export Plugin Settings' ); ?></a>
 	        </h2>
