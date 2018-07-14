@@ -124,13 +124,13 @@ function html_import_options_page() { ?>
 				<tr>
 				<th></th>
 				<td>
-					<label><input name="html_import[clean_content]" id="clean_content"  type="radio" value="1" 
+					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="1" 
 						<?php checked( $options['clean_content'], '1' ); ?> />
-						<?php _e( "Clean HTML with wp_kses_post()", 'import-html-pages' ); ?> </label>
+						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses_post()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses_post/' ), 'import-html-pages' ); ?> </label>
 						
-					<label><input name="html_import[clean_content]" id="clean_content"  type="radio" value="0" 
+					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="0" 
 						<?php checked( $options['clean_content'], '0' ); ?> />
-						<?php _e( "Clean HTML with wp_kses()", 'import-html-pages' ); ?> </label>
+						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses/' ), 'import-html-pages' ); ?> </label>
 				</td>
 				</tr>
 			
