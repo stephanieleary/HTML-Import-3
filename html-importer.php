@@ -658,4 +658,3 @@ if ( !function_exists( 'mb_strrpos' ) ) {
 		return strrpos( utf8_decode( $haystack ), $needle, $offset );
 	}
 }
-);
