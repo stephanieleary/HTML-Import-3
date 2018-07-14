@@ -40,15 +40,18 @@ function html_import_options_page() { ?>
 			$options = html_import_get_options();
 			$msg .= '<pre>'. print_r( $options, true ) .'</pre>';
 			echo $msg;
+			$active_tab = 'html-import-settings-files';
+			if ( isset( $_REQUEST['tab'] ) ) {
+			    $active_tab = $_REQUEST[ 'tab' ];
+			}
 			?>
 
-	<div class="wp-filter">
-		<ul class="filter-links">
-			<li class-"html-import-options"><a href="#html-import-settings-files"><?php _e( 'Plugin Settings' ); ?></a></li>
-		
-			<li class="html-import-export"><a href="#html-import-settings-export"><?php _e( 'Import/Export Plugin Settings' ); ?></a></li>
-		</ul>
-	</div>
+			<h2 class="nav-tab-wrapper">
+	            <a href="<?php echo add_query_arg( 'tab', 'html-import-settings-files' ); ?>" class="nav-tab  <?php echo $active_tab == '' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Plugin Settings' ); ?></a>
+				<a href="<?php echo add_query_arg( 'tab', 'html-import-settings-redirects' ); ?>" class="nav-tab  <?php echo $active_tab == 'html-import-settings-redirects' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Generate Redirects' ); ?></a>
+	            <a href="<?php echo add_query_arg( 'tab', 'html-import-settings-export' ); ?>" class="nav-tab   <?php echo $active_tab == 'html-import-settings-export' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Import/Export Plugin Settings' ); ?></a>
+	        </h2>
+			
 		<?php
 		if ( $options['firstrun'] === true ) {
 		echo '<p>'.sprintf( __( 'Welcome to HTML Import! This is a complicated importer with many options. Please look through all the sections on this page before running your import.', 'import-html-pages' ), 'options-general.php?page=html-import.php' ).'</p>'; 
@@ -57,6 +60,7 @@ function html_import_options_page() { ?>
 
 
 		<!-- FILES -->
+		<?php if ( $active_tab == 'html-import-settings-files' ) : ?>
 		<fieldset id="html-import-settings-files">
 		<h3><?php _e( "Files", 'import-html-pages' ); ?></h3>				
 			<table class="form-table ui-tabs-panel" id="files">
@@ -127,7 +131,7 @@ function html_import_options_page() { ?>
 					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="1" 
 						<?php checked( $options['clean_content'], '1' ); ?> />
 						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses_post()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses_post/' ), 'import-html-pages' ); ?> </label>
-						
+					<br />
 					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="0" 
 						<?php checked( $options['clean_content'], '0' ); ?> />
 						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses/' ), 'import-html-pages' ); ?> </label>
@@ -353,21 +357,27 @@ function html_import_options_page() { ?>
 	
 			<?php endif; ?>
 					
-			<p class="submit">
-				<input type="submit" class="button-primary" value="<?php _e( 'Save settings', 'import-html-pages' ) ?>" />
+			<p class="submit clear">
+				<input type="submit" class="button-primary" value="<?php _e( 'Save settings', 'import-html-pages' ); ?>" />
 				<?php if ( !$options['firstrun'] ) { ?>
-				<a href="admin.php?import=html" class="button-secondary">Import files</a>
+				<a href="<?php echo add_query_arg( 'import', 'html', 'admin.php' ) ?>" class="button-secondary"><?php _e( 'Import files', 'import-html-pages' ); ?></a>
 				<?php } ?>
 			</p>
 		</form>
 		</fieldset>
+		<?php endif; ?>
 		
+		<?php if ( $active_tab == 'html-import-settings-redirects' ) : ?>
 		<fieldset id="html-import-settings-redirects">
 		 <h3><?php _e( "Regenerate <kbd>.htaccess</kbd> redirects", 'import-html-pages' ); ?></h3>
 	     <p><?php printf( __( 'If you <a href="%s">changed your permalink structure</a> after you imported files, you can <a href="%s">regenerate the redirects</a>.', 'import-html-pages' ), 'wp-admin/options-permalink.php', wp_nonce_url( 'admin.php?import=html&step=2', 'html_import_regenerate' ) ) ?></p>
 		</fieldset>
+		<?php endif;
 		
-	<?php html_import_options_io_page(); ?>
+	if ( $active_tab == 'html-import-settings-export' ) :
+		html_import_options_io_page();
+	endif; 
+	?>
 	
 	</div> <!-- .wrap -->
 	<?php 
