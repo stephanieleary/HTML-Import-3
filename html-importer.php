@@ -441,7 +441,20 @@ class HTML_Import extends WP_Importer {
 		flush();
 	}
 	
-	function display_progress( $percentage ) { ?>
+	// from $report = $crawler->getProcessReport(); 
+	// $percentage = round( count( $this->url_queue ) / $report->links_followed * 100 );
+	function display_progress( $percentage ) { 
+		/*
+		$report = $crawler->getProcessReport(); 
+		$lb = "<br />";
+		echo "Summary:" . $lb;
+		echo "Links in sitemap: " . count( $this->url_queue );
+		echo "Links followed: " . $report->links_followed . $lb;
+		echo "Documents received: " . $report->files_received . $lb;
+		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
+		echo "Process runtime: " . $report->process_runtime . " sec" . $lb;
+		/**/
+		?>
 		<script>
 			var percentage = <?php echo $percentage; ?>;
 			jQuery( ".progress-bar #valuenow" ).html( percentage + '%' );
@@ -518,6 +531,7 @@ class HTML_Import extends WP_Importer {
 	
 	function start_phpcrawl() {
 		$crawler = new HTMLImportCrawler();
+		$this->crawler_id = $crawler->getCrawlerId();
 		$crawler->setURL( $this->options['get_path'] );
 
 		// search for links in these file types
@@ -562,6 +576,11 @@ class HTML_Import extends WP_Importer {
 		else {
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
 			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
+		}
+		$report = $crawler->getProcessReport( $this->crawler_id );
+		if ( $report ) {
+			$percentage = round( count( $this->url_queue ) / $report->links_followed * 100 );
+			$this->display_progress( $percentage );
 		}
 	}
 	
@@ -612,8 +631,8 @@ class HTML_Import extends WP_Importer {
 			case 1 :
 				check_admin_referer( 'html-import' );
 				$this->options = get_option( 'html_import' );
-				$this->display_progress_bar();
 				$this->get_sitemap();
+				$this->display_progress_bar();
 				$crawler = $this->start_phpcrawl();
 				$this->finish_phpcrawl( $crawler );
 				break;
