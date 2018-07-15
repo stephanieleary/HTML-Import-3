@@ -452,47 +452,73 @@ class HTML_Import extends WP_Importer {
 		flush();
 	}
 	
-	function get_sitemap_urls() {
-		$options = get_option( 'html_import' );
-		if ( filter_var( $options['get_path'], FILTER_VALIDATE_URL ) === FALSE ) {
-		    echo __( 'The URL given is not valid.', 'import-html-pages' );
-			return;
-		}
-					
+	function get_sitemap( $path = NULL ) {
+		
 		if ( false === ( $this->url_queue = get_transient( 'html_import_sitemap_urls' ) ) ) {
-			$sitemap = trailingslashit( $options['get_path'] ) . 'sitemap.xml';
-			// TODO: handle gzipped sitemaps
-			// TODO: handle sitemaps that are indexes of other sitemap files
-			$response = wp_remote_get( $sitemap );
+			
+			if ( !isset( $path ) ) {
+				if ( filter_var( $this->options['get_path'], FILTER_VALIDATE_URL ) === FALSE ) {
+				    echo __( 'The URL given is not valid.', 'import-html-pages' );
+					return;
+				}
+				// request gzip first; if not found, request .xml
+				// wp_remote_get() decompresses the response by default, so it should handle gzips just fine
+				$sitemap = trailingslashit( $this->options['get_path'] ) . 'sitemap.xml.gz';
+				$response = wp_remote_get( $sitemap );
+				$response_code = wp_remote_retrieve_response_code( $response );
+				if ( 200 !== $response_code || is_wp_error( $response ) ) {
+					$sitemap = trailingslashit( $this->options['get_path'] ) . 'sitemap.xml';
+					$response = wp_remote_get( $sitemap );
+				}
+			}
+			else {
+				$response = wp_remote_get( $path );
+			}	
+		
 			if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
 				$body = wp_remote_retrieve_body( $response );
-				$urlset = new SimpleXMLElement( $body );
-				$ns = $urlset->getNamespaces(true); 
-				foreach ( $urlset->url as $uri ) {
-					$images = $uri->children($ns['image']);
-					if ( !empty( $images->image ) ) {
-						$img_arr = (array) $images->image; // array keys: loc, title, caption
-						$img_arr['title'] = (string) $img_arr['title'] ;
-						$img_arr['caption'] = (string) $img_arr['caption'] ;
+				$element = new SimpleXMLElement( $body );
+				if ( $element->getName() == 'sitemapindex' ) {
+					foreach ( $element->sitemap as $map ) {
+						$this->get_sitemap( $map->loc );
 					}
-					$this->url_queue[] = array(
-						'url' => (string) $uri->loc,
-						'lastmod' => (string) $uri->lastmod,
-						'images' => $img_arr,
-					);
-					
 				}
+				elseif ( $element->getName() == 'urlset' ) {
+					get_sitemap_urls( $element );
+				}
+				
 			} 
 			else
 				echo esc_html( $response->get_error_message() );
 		}
-		set_transient( 'html_import_sitemap_urls', $this->url_queue, HOUR_IN_SECONDS );
+		
+		if ( ! empty( $this->url_queue ) ) {
+			set_transient( 'html_import_sitemap_urls', $this->url_queue, HOUR_IN_SECONDS );
+		}
+		
+	}
+	
+	function get_sitemap_urls( $urlset ) {
+		$ns = $urlset->getNamespaces(true);
+		foreach ( $urlset->url as $uri ) {
+			$images = $uri->children($ns['image']);
+			if ( !empty( $images->image ) ) {
+				$img_arr = (array) $images->image; // array keys: loc, title, caption
+				$img_arr['title'] = (string) $img_arr['title'] ;
+				$img_arr['caption'] = (string) $img_arr['caption'] ;
+			}
+			$this->url_queue[] = array(
+				'url' => (string) $uri->loc,
+				'lastmod' => (string) $uri->lastmod,
+				'images' => $img_arr,
+			);
+
+		}
 	}
 	
 	function start_phpcrawl() {
-		$options = get_option( 'html_import' );
 		$crawler = new HTMLImportCrawler();
-		$crawler->setURL( $options['get_path'] );
+		$crawler->setURL( $this->options['get_path'] );
 
 		// search for links in these file types
 		$crawler->addLinkSearchContentType( "#text/html# i" );
@@ -517,24 +543,15 @@ class HTML_Import extends WP_Importer {
 		// Store and send cookie-data like a browser does
 		$crawler->enableCookieHandling(true);
 
-		// Set the traffic-limit to 50 MB (in bytes)
-		$crawler->setTrafficLimit(50 * 1000 * 1024);
+		// Set the traffic-limit to 50 MB (in bytes); allow plugins to override this value
+		$crawler->setTrafficLimit( apply_filters( 'html_import_crawler_traffic_limit', 50 * 1000 * 1024 ) );
 		
 		// testing
 		//$crawler->setCrawlingDepthLimit(1);
 		
 		$crawler->go();
 		
-		$this->finish_phpcrawl();
-		
-		$report = $crawler->getProcessReport(); 
-		$lb = "<br />";
-		echo "Summary:".$lb;
-		echo "Links followed: ".$report->links_followed.$lb;
-		echo "Documents received: ".$report->files_received.$lb;
-		echo "Data received: ". $this->filesize_format( $report->bytes_received ).$lb;
-		echo "Process runtime: ".$report->process_runtime." sec".$lb;
-		echo "Done.".$lb;
+		return $crawler;
 	}
 	
 	function receive_content( $DocInfo ) {
@@ -550,30 +567,41 @@ class HTML_Import extends WP_Importer {
 	
 	function filesize_format( $size ) {
 		$units = array( 'B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB');
-		$power = $size > 0 ? floor(log($size, 1024)) : 0;
-		return number_format($size / pow(1024, $power), 2, '.', ',') . ' ' . $units[$power];
+		$power = $size > 0 ? floor( log( $size, 1024 ) ) : 0;
+		return number_format( $size / pow( 1024, $power ), 2, '.', ',' ) . ' ' . $units[$power];
 	}
 	
-	function finish_phpcrawl() {
+	function finish_phpcrawl( $crawler ) {
+		
 		// post-processing
-		$options = get_option( 'html_import' );
 		$posts = get_posts( array(
 			'fields' => 'ids',
-			'post_type' => $options['type'],
-			'post_status' => $options['status'],
+			'post_type' => $this->options['type'],
+			'post_status' => $this->options['status'],
 			'meta_key' => 'URL_before_HTML_Import'
 		) );
 		foreach ( $posts as $post_id ) {
-			if ( !empty( $options['thumbnail_selector'] ) )
+			if ( !empty( $this->options['thumbnail_selector'] ) )
 				$this->set_thumbnail( $post_id );
 			// TODO: fix parent hierarchy
 			// TODO: fix internal links
 		}
+		
+		// TODO: translate these strings
+		$report = $crawler->getProcessReport(); 
+		$lb = "<br />";
+		echo "Summary:" . $lb;
+		echo "Links in sitemap: " . count( $this->url_queue );
+		echo "Links followed: " . $report->links_followed . $lb;
+		echo "Documents received: " . $report->files_received . $lb;
+		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
+		echo "Process runtime: " . $report->process_runtime . " sec" . $lb;
+		echo "Done." . $lb;
 	}
 	
 	function dispatch() {
 		
-		$step = absint( $_GET['step'] );
+		$step = absint( $_REQUEST['step'] );
 
 		$this->header();
 
@@ -585,29 +613,9 @@ class HTML_Import extends WP_Importer {
 				check_admin_referer( 'html-import' );
 				$this->options = get_option( 'html_import' );
 				$this->display_progress_bar();
-				$this->start_phpcrawl();
-				//$this->get_sitemap_urls();
-				//$result = $this->crawl_sitemap();
-				//if ( is_wp_error( $result ) )
-				//	echo $result->get_error_message();
-				
-				/*
-				TODO v.3
-				
-				handle sitemaps that are broken into parts like TVMDL's
-				Dreamweaver template regions as selectors:
-					// Find all comment (<!--...-->) blocks
-					// $es = $html->find('comment');
-				detect get_path type: valid URL, valid local directory path, single file upload
-				fix parent hierarchy
-				redo find_internal_links()
-				remove_from_title replacement isn't working
-				ajaxify content & file handlers and progress bar
-				use sitemap for estimating progress bar; otherwise do lo-fi progress dots
-				check whether phpcrawl is rewriting relative links
-				add setting for follow mode? in host = default; in path also an option and would simplify parents
-				/**/
-				
+				$this->get_sitemap();
+				$crawler = $this->start_phpcrawl();
+				$this->finish_phpcrawl( $crawler );
 				break;
 			case 2 :
 				$this->regenerate_redirects();

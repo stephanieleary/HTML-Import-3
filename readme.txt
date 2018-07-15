@@ -100,8 +100,22 @@ No. The files must be on the same server as your WordPress installation. I have 
 * Use wp_kses() or wp_kses_post() for allowed HTML instead of specifying tags in the options screen.
 * Options to import images, fix internal links, and preserve file slugs are now on by default.
 * Use get_allowed_mime_types() with filter 'html_import_allowed_mime_types' to specify document types to import instead of specifying MIME types in the options screen.
-* TODO: make the progress bar work
-* TODO: move content handler to an AJAX function so large sites can be processed more gracefully.
+* Adds 'html_import_crawler_traffic_limit' filter to allow overriding the default total traffic limit of 50MB
+* uses sitemaps.xml(.gz) to estimate the number of HTML files and display progress
+* handles sitemaps that are indexes of other sitemaps
+* TODO: 
+* move content handler to an AJAX function so large sites can be processed more gracefully.
+* Dreamweaver template regions as selectors:
+* 	// Find all comment (<!--...-->) blocks
+* 	// $es = $html->find('comment');
+* detect get_path type: valid URL, valid local directory path, single file upload
+* fix parent hierarchy
+* redo find_internal_links()
+* remove_from_title replacement isn't working
+* ajaxify content & file handlers and progress bar
+* use sitemap for estimating progress bar
+* check whether phpcrawl is rewriting relative links
+* add setting for follow mode? in host = default; in path also an option and would simplify parents
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.
 * Fixed bug where the page parent option displayed incorrectly in sites with no published pages.
