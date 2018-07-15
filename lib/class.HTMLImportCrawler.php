@@ -52,6 +52,8 @@ class HTMLImportCrawler extends PHPCrawler {
     }
 
 	// custom HTML Import stuff
+	
+	// remove <head> so we're searching only the body
 	// don't check $this->ignore_document_sections because we're not using any of the constants
 	$html = str_get_html( $html_source );
 	$head = $html->find('head', 0);
