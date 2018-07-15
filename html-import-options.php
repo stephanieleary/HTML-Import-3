@@ -66,7 +66,7 @@ function html_import_options_page() { ?>
 			<table class="form-table ui-tabs-panel" id="files">
 		        <tr valign="top">
 			        <th scope="row"><?php _e( "Path to get", 'import-html-pages' ); ?></th>
-			        <td><p><label><input type="text" name="html_import[get_path]" id="get_path"
+			        <td><p><label><input type="text" name="html_import[get_path]" id="get_path" placeholder="http://example.com"
 							 	value="<?php echo esc_attr( $options['get_path'] ); ?>" class="widefloat"  />
 							</label>
 						</p>
@@ -84,7 +84,7 @@ function html_import_options_page() { ?>
 						<label for="html_import[content_selector]"><?php _e( "Content selector", 'import-html-pages' ); ?></label>
 					</th>
 			        <td>
-						<input type="text" name="html_import[content_selector]" value="<?php echo esc_attr( $options['content_selector'] ); ?>" class="widefloat"  />
+						<input type="text" name="html_import[content_selector]" value="<?php echo esc_attr( $options['content_selector'] ); ?>" class="widefloat" placeholder="div#main_content" />
   					</td>
 		        </tr>
 		
@@ -150,7 +150,7 @@ function html_import_options_page() { ?>
 		        <td>
 			
 		            
-		            <input type="text" name="html_import[title_selector]" id="title_selector" value="<?php echo esc_attr( $options['title_selector'] ); ?>" class="widefloat"  />
+		            <input type="text" name="html_import[title_selector]" id="title_selector" value="<?php echo esc_attr( $options['title_selector'] ); ?>" class="widefloat" placeholder="title" />
 
 				</td>
 	        </tr>
@@ -203,7 +203,7 @@ function html_import_options_page() { ?>
 				<tr>
 				<th><?php _e('Date selector', 'import-html-pages'); ?></th>
 				<td>
-					<input type="text" name="html_import[date_selector]" id="date_selector" value="<?php echo esc_attr( $options['date_selector'] ); ?>" />
+					<input type="text" name="html_import[date_selector]" id="date_selector" value="<?php echo esc_attr( $options['date_selector'] ); ?>" placeholder="span.date" />
 				<p class="description"><?php _e( 'Enter __now, __filemtime, DC.date, or a CSS/jQuery selector.', 'import-html-pages' ); ?>
 				</td>
 				</tr>
@@ -211,7 +211,7 @@ function html_import_options_page() { ?>
 				<tr>
 				<th><?php _e('Featured image selector', 'import-html-pages'); ?></th>
 				<td>
-					<input type="text" name="html_import[thumbnail_selector]" id="thumbnail_selector" value="<?php echo esc_attr( $options['thumbnail_selector'] ); ?>" />
+					<input type="text" name="html_import[thumbnail_selector]" id="thumbnail_selector" value="<?php echo esc_attr( $options['thumbnail_selector'] ); ?>" placeholder="div#content img:firstchild" />
 				</td>
 				</tr>
 				<tr>
