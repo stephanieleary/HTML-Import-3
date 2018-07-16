@@ -131,66 +131,17 @@ class HTML_Import extends WP_Importer {
 		}
 	}
 
-	function parent_directory( $path ) {
-		$win = false;
-		if ( strpos( $path, '\\' ) !== FALSE ) {
-			$win = true;
-	    	$path = str_replace( '\\', '/', $path );
+	function fix_internal_links( $content, $id ) {	
+		$html = file_get_html( $content );
+		// Find all links
+		foreach ( $html->find('a') as $link ) {
+			$old_url = $link->href;
+			$new_post_id = get_parent_id_by_referer( $url_before_import );
+			$new_url = get_permalink( $new_post_id );
+			$link->href = $new_url;
 		}
-	    if ( substr( $path, strlen( $path ) - 1 ) != '/' ) $path .= '/'; 
-	    $path = substr( $path, 0, strlen( $path ) - 1 );
-	    $path = substr( $path, 0, strrpos( $path, '/' ) ) . '/';
-	    if ( $win ) $path = str_replace( '/', '\\', $path );
-	    return $path;
-	}
-	
-	function fix_internal_links( $content, $id ) {		
-		// find all href attributes
-		preg_match_all( '/<a[^>]* href=[\'"]?([^>\'" ]+ )/i', $content, $matches );
-		for ( $i=0; $i<count( $matches[0] ); $i++ ) {
-			$hrefs[] = $matches[1][$i];
-		}
-		if ( !empty( $hrefs ) ) {
-			//echo '<p>Looking in '.get_permalink( $id ).'</p>';
-			$options = get_option( 'html_import' );
-			$site = $options['old_url'];
-			$rootdir = $options['root_directory'];
-			foreach ( $hrefs as $href ) {
-				if ( '#' != substr( $href, 0, 1 ) && 'mailto:' != substr( $href, 0, 7 ) ) { // skip anchors and mailtos
-					if ( preg_match( '/^http:\/\//', $href ) || preg_match( '/^https:\/\//', $href ) ) {
-						// if it's an internal link, let's get a local file path
-						$linkpath = str_replace( $site, $rootdir, $href );		
-					}
-					// href="/images/foo"
-					elseif ( '/' == substr( $href, 0, 1 ) ) { 
-						$linkpath = $rootdir . $href;
-						$linkpath = $this->remove_dot_segments( $linkpath );
-					}
-					// href="../../images/foo" or href="images/foo"
-					else {
-						// we need to know where we are in the hierarchy 
-						$oldpath = get_post_meta( $id, 'URL_before_HTML_Import', true );
-						$oldpath = str_replace( $site, $rootdir, $oldpath );
-						//echo '<p>Old path: '.$oldpath;
-						$oldfile = strrchr( $oldpath, '/' );
-						$linkpath = str_replace( $oldfile, '/'.$href, $oldpath );
-						$linkpath = $this->remove_dot_segments( $linkpath );
-						//echo ' Link path: '.$linkpath . '</p>';
-					}
-			
-					$linkpath = rtrim( $linkpath, '/' );
-					//echo '<p>Old link: '.$href.' Full path: '.$linkpath;
-					// now replace the old URL with the new permalink
-					$postkey = array_search( $linkpath, $this->filearr );
-					//echo ' Post ID:'.$postkey.'.</p>';
-					if ( !empty( $postkey ) ) {
-						//echo '<p>I think '.$linkpath.' has moved to '.get_permalink( $postkey ).'.</p>';
-						$content = str_replace( $href, get_permalink( $postkey ), $content );
-					}
-				} // if #/mailto
-			} // foreach
-		} // if empty
-		return $content;
+		
+		return $html;
 	}
 
 	function get_single_file( $txt = false ) {
@@ -245,13 +196,14 @@ class HTML_Import extends WP_Importer {
 		$fixedlinks = array(); 
 		foreach ( $this->filearr as $id => $path ) {
 			$new_post = array();
-			$post = get_post( $id );
-			$new_post['ID'] = $post->ID;
-			$new_post['post_content'] = $this->fix_internal_links( $post->post_content, $post->ID );
+			$new_post['ID'] = $id;
+			$new_post['post_content'] = $this->fix_internal_links( get_the_content( $id ), $id );
 		
-			if ( !empty( $new_post['post_content'] ) )
+			if ( !empty( $new_post['post_content'] ) ) {
 				wp_update_post( $new_post );
-			$fixedlinks[] .= $post->ID;
+				$fixedlinks[] .= $id;
+			}
+			
 		}
 		if ( !empty( $fixedlinks ) ) { ?>
 		<h3><?php _e( 'All done!', 'import-html-pages' ); ?></h3>
@@ -281,8 +233,11 @@ class HTML_Import extends WP_Importer {
 			$content = str_replace( $title_raw, '', $content );
 		$content = wp_kses( $content, wp_kses_allowed_html( 'post' ) );
 		
-		if ( $options['preserve_slugs'] )
+		if ( $options['preserve_slugs'] ) {
 			$slug = stripslashes( parse_url( $url, PHP_URL_PATH ) );
+			$parts = pathinfo( $slug );
+			$slug = basename( $parts['filename'], '.' . $parts['extension'] );
+		}
 		else
 			$slug = sanitize_title( $title );
 		
@@ -290,7 +245,7 @@ class HTML_Import extends WP_Importer {
 		if ( $options['meta_desc'] ) {
 			$excerpt = $html->find("meta[name='description']", 0);
 			if ( !empty( $excerpt ) )
-				$excerpt = $excerpt->content;
+				$excerpt = sanitize_text_field( $excerpt->content );
 		}
 		
 		$date = '';
@@ -365,12 +320,11 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function set_thumbnail( $post_id, $html_raw ) {
-		$options = get_option( 'html_import' );
-		if ( empty( $options['thumbnail_selector'] ) )
+		if ( empty( $this->options['thumbnail_selector'] ) )
 			return false;
 		
 		$html = str_get_html( $html_raw );
-		$img = $html->find( $options['thumbnail_selector'], 0 );
+		$img = $html->find( $this->options['thumbnail_selector'], 0 );
 		if ( !$img )
 			return false;
 		
@@ -388,7 +342,7 @@ class HTML_Import extends WP_Importer {
 			'meta_key' => 'URL_before_HTML_Import',
 			'meta_value' => esc_url_raw( $src )
 		) );
-		if ( empty( $posts ) )
+		if ( empty( $posts ) || is_wp_error( $posts ) )
 			return false;
 		update_post_meta( $post_id, '_thumbnail_id', $posts[0]->ID ); 
 		
@@ -520,12 +474,12 @@ class HTML_Import extends WP_Importer {
 				$img_arr['title'] = (string) $img_arr['title'] ;
 				$img_arr['caption'] = (string) $img_arr['caption'] ;
 			}
-			$this->url_queue[] = array(
+			$new_urls = array(
 				'url' => (string) $uri->loc,
 				'lastmod' => (string) $uri->lastmod,
 				'images' => $img_arr,
 			);
-
+			array_merge( $this->url_queue, $new_urls );
 		}
 	}
 	
@@ -545,23 +499,29 @@ class HTML_Import extends WP_Importer {
 		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() ); 
 		
 		foreach ( $mimes as $mime ) {
-			$crawler->addContentTypeReceiveRule( '#' . $mime . '# i' );
+			$crawler->addContentTypeReceiveRule( '#' . (string) $mime . '# i' );
 		}
 		
 		// PDF is buggy for some reason; add the extension explicitly as well as the mime type
-		$crawler->addContentTypeReceiveRule("#application/pdf# i");
-		$crawler->addContentTypeReceiveRule("#\.(pdf)$# i");
+		$crawler->addContentTypeReceiveRule( "#application/pdf# i" );
+		$crawler->addContentTypeReceiveRule( "#\.(pdf)$# i" );
 
-		$crawler->setUserAgentString('WordPress-HTMLImport3(alpha)');
+		$crawler->setUserAgentString( apply_filters( 'html_import_user_agent', 'WordPress-HTMLImport3(alpha)' ) );
 
 		// Store and send cookie-data like a browser does
-		$crawler->enableCookieHandling(true);
+		$crawler->enableCookieHandling( true );
+		
+		// Obey robots.txt, but allow plugins to override
+		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', true ) );
 
 		// Set the traffic-limit to 50 MB (in bytes); allow plugins to override this value
-		$crawler->setTrafficLimit( apply_filters( 'html_import_crawler_traffic_limit', 50 * 1000 * 1024 ) );
+		$crawler->setTrafficLimit( (int) apply_filters( 'html_import_crawler_traffic_limit', 50 * 1000 * 1024 ) );
 		
-		// testing
-		//$crawler->setCrawlingDepthLimit(1);
+		// Allow plugins to set crawler depth
+		$depth = (int) apply_filters( 'html_import_crawler_depth', NULL );
+		if ( $depth ) {
+			$crawler->setCrawlingDepthLimit( $depth );
+		}
 		
 		$crawler->go();
 		
@@ -576,11 +536,11 @@ class HTML_Import extends WP_Importer {
 		else {
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
 			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
-		}
-		$report = $crawler->getProcessReport( $this->crawler_id );
-		if ( $report ) {
-			$percentage = round( count( $this->url_queue ) / $report->links_followed * 100 );
-			$this->display_progress( $percentage );
+			if ( ! is_wp_error( $post_id ) ) {
+				$this->file_counter++;
+				$percentage = round( count( $this->url_queue ) / $this->file_counter * 100 );
+				$this->display_progress( $percentage );
+			}
 		}
 	}
 	
@@ -599,12 +559,20 @@ class HTML_Import extends WP_Importer {
 			'post_status' => $this->options['status'],
 			'meta_key' => 'URL_before_HTML_Import'
 		) );
-		foreach ( $posts as $post_id ) {
-			if ( !empty( $this->options['thumbnail_selector'] ) )
-				$this->set_thumbnail( $post_id );
-			// TODO: fix parent hierarchy
-			// TODO: fix internal links
+		if ( !is_wp_error( $posts ) ) {
+			if ( $this->options['fix_links'] ) {
+				// TODO: fix internal links
+			}
+			foreach ( $posts as $post_id ) {
+				if ( !empty( $this->options['thumbnail_selector'] ) ) {
+					$this->set_thumbnail( $post_id );
+				}
+				// TODO: fix parent hierarchy
+
+
+			}
 		}
+		
 		
 		// TODO: translate these strings
 		$report = $crawler->getProcessReport(); 
@@ -631,6 +599,7 @@ class HTML_Import extends WP_Importer {
 			case 1 :
 				check_admin_referer( 'html-import' );
 				$this->options = get_option( 'html_import' );
+				$this->file_counter = 0;
 				$this->get_sitemap();
 				$this->display_progress_bar();
 				$crawler = $this->start_phpcrawl();

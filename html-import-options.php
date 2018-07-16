@@ -2,7 +2,8 @@
 
 function html_import_get_options() {
 	$defaults = array(
-		'get_path' => '',		
+		'get_path' => '',
+		'follow_mode' => 2,		
 		'preserve_slugs' => 1,
 		'status' => 'publish',
 		'root_parent' => 0,
@@ -72,6 +73,23 @@ function html_import_options_page() { ?>
 						</p>
 					</td>
 		        </tr>	
+		
+				<tr valign="top">
+			        <th scope="row"><?php _e( "Domains to crawl", 'import-html-pages' ); ?></th>
+			        <td><p>
+						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="1" 
+							<?php checked( $options['follow_mode'], '1' ); ?> />
+							<?php _e( 'This top-level domain, including subdomains (www.example.com and foo.example.com)', 'import-html-pages' ); ?> </label>
+						<br />
+						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="2" 
+							<?php checked( $options['follow_mode'], '1' ); ?> />
+							<?php _e( 'This top-level domain, not including subdomains (www.example.com but not foo.example.com)', 'import-html-pages' ); ?> </label>
+						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="3" 
+							<?php checked( $options['follow_mode'], '3' ); ?> />
+							<?php _e( 'This path and its subdirectories (www.example.com/foo and www.example.com/foo/bar but not www.example.com)', 'import-html-pages' ); ?> </label>
+						</p>
+					</td>
+		        </tr>
 		    </table>
 		</fieldset>
 		
@@ -412,6 +430,7 @@ function html_import_validate_options( $input ) {
 	else
 		$options['type'] = $input['type'];
 
+	$options['follow_mode'] = 		absint( $input['follow_mode'] );
 	$options['meta_desc'] = 		absint( $input['meta_desc'] );
 	$options['title_inside'] = 		absint( $input['title_inside'] );
 	$options['clean_content'] = 	absint( $input['clean_content'] );

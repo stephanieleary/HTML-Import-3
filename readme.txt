@@ -28,8 +28,6 @@ Options:
 * remove a common phrase (such as the site name) from imported titles
 * remove the imported title from within the content area
 * upload a single file or scan a directory for files to import
-* specify file extensions to import (e.g. html, htm, php)
-* specify directories to exclude (e.g. images, css)
 * if importing pages (or any hierarchical post type), specify whether your top-level files should become top-level pages or children of an existing page
 * specify index file names (e.g. index.html, default.htm) whose contents should be used for the directory parent pages 
 * set tags, categories, and custom taxonomies
@@ -73,7 +71,7 @@ No. The importer simply extracts the relevant part of each HTML file and copies 
 
 Yes, it has been used to import over a thousand pages, and did so in a couple of minutes. However, you might need to adjust PHP's `max_execution_time` setting as described below.
 
-= I import a few files and then the script times out. What can I do? =
+= I import a few files and then the page remains blank. What can I do? =
 
 The importer will attempt to work around your server's `max_execution_time` setting for PHP (usually 30 seconds), but some servers don't allow this. You can try to increase it by adding a line to your `.htaccess` file:
 
@@ -91,7 +89,7 @@ The skipped directory setting just tells the importer where to look for HTML fil
 
 = Can I import files from another server? =
 
-No. The files must be on the same server as your WordPress installation. I have no intention of ever making this plugin import files from URLs. You are welcome to fork the code if you want to add this feature.
+Yes.
 
 == Changelog ==
 
@@ -116,6 +114,7 @@ No. The files must be on the same server as your WordPress installation. I have 
 * use sitemap for estimating progress bar
 * check whether phpcrawl is rewriting relative links
 * add setting for follow mode? in host = default; in path also an option and would simplify parents
+* LAST: update $crawler->setUserAgentString
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.
 * Fixed bug where the page parent option displayed incorrectly in sites with no published pages.
