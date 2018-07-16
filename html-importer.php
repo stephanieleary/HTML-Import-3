@@ -523,6 +523,8 @@ class HTML_Import extends WP_Importer {
 			$crawler->setCrawlingDepthLimit( $depth );
 		}
 		
+		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
+		
 		$crawler->go();
 		
 		return $crawler;
