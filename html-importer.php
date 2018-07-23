@@ -82,10 +82,10 @@ class HTML_Import extends WP_Importer {
 	
 	function regenerate_redirects() {
 		$newredirects = ''; 
-		$imported = get_posts( array( 'meta_key' => 'URL_before_HTML_Import', 'post_type' => 'any', 'post_status' => 'any', 'numberposts' => '-1' ) );
-		foreach( $imported as $post ) { 
-			$old = get_post_meta( $post->ID, 'URL_before_HTML_Import', true );
-			$newredirects .= "Redirect\t".$old."\t".get_permalink( $post->ID )."\t[R=301,NC,L]\n";
+		$post_ids = $this->get_imported_posts();
+		foreach( $post_ids as $post_id ) { 
+			$old = get_post_meta( $post_id, 'URL_before_HTML_Import', true );
+			$newredirects .= "Redirect\t".$old."\t".get_permalink( $post_id )."\t[R=301,NC,L]\n";
 		}
 		if ( !empty( $newredirects ) ) { ?>
 		<h3><?php _e( '.htaccess Redirects', 'import-html-pages' ); ?></h3>
@@ -109,14 +109,16 @@ class HTML_Import extends WP_Importer {
 		}
 	}
 
-	function fix_internal_links( $content, $id ) {	
+	function fix_internal_links( $post_id ) {	
+		$content = get_post_field( 'post_content', $post_id );
 		$html = str_get_html( $content );
 		if ( !$html )
 			return $content;
+			
 		foreach ( $html->find('a') as $link ) {
-			$post_id = $this->get_post_id_by_original_url( $link->href );
-			if ( $post_id && ! is_wp_error( $post_id ) )
-				$link->href = get_permalink( $post_id );
+			$linked_post_id = $this->get_post_id_by_original_url( $link->href );
+			if ( $linked_post_id && ! is_wp_error( $linked_post_id ) )
+				$link->href = get_permalink( $linked_post_id );
 		}
 		
 		return $html->save();
@@ -127,7 +129,7 @@ class HTML_Import extends WP_Importer {
 		$importfile = file( $this->file ); // Read the file into an array
 		$importfile = implode( '', $importfile ); // squish it
 		$this->file = $importfile;
-		$this->get_post( '', false );
+		$this->handle_post_content( '', $this->file, '' );
 	}
 	
 	function handle_import_media_file( $DocInfo ) {
@@ -179,8 +181,7 @@ class HTML_Import extends WP_Importer {
 		foreach ( $post_ids as $post_id ) {
 			$new_post = array();
 			$new_post['ID'] = $post_id;
-			$content = get_post_field( 'post_content', $post_id );
-			$new_post['post_content'] = $this->fix_internal_links( $content, $post_id );
+			$new_post['post_content'] = $this->fix_internal_links( $post_id );
 		
 			if ( !empty( $new_post['post_content'] ) ) {
 				wp_update_post( $new_post );
@@ -199,7 +200,7 @@ class HTML_Import extends WP_Importer {
 		$html = str_get_html( $html_raw );
 		
 		$title = $html->find( $options['title_selector'], 0 );
-		$title_raw = $title->outertext;
+		$title_html = $title->outertext;
 		$title = $title->plaintext;
 		if ( !empty( $options['remove_from_title'] ) )
 			$title = str_replace( $options['remove_from_title'], '', $title );
@@ -212,7 +213,7 @@ class HTML_Import extends WP_Importer {
 			$content = $content->innertext;
 		// remove inner titles before cleaning up HTML
 		if ( $options['title_inside'] )
-			$content = str_replace( $title_raw, '', $content );
+			$content = str_replace( $title_html, '', $content );
 		$content = wp_kses( $content, wp_kses_allowed_html( 'post' ) );
 		
 		if ( $options['preserve_slugs'] ) {
@@ -339,8 +340,6 @@ class HTML_Import extends WP_Importer {
 	function import_single_url( $url ) {
 		$response = wp_remote_get( $url );
 		if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
-			
-			$options = get_option( 'html_import' );
 			$body = wp_remote_retrieve_body( $response );
 			$date = wp_remote_retrieve_header( $response, 'last-modified' );
 			// pass the contents to SimpleHTMLDom
@@ -422,18 +421,6 @@ class HTML_Import extends WP_Importer {
 			if ( !isset( $path ) ) {
 				// trim any filename that might have been given in the path
 				$path_parts = parse_url( $this->options['get_path'] );
-				/*
-				if ( !empty( $path['port'] ) ) {
-					$path['port'] = ':' . $path['port'];
-				}
-				if ( !empty( $path['user'] ) ) {
-					$path['user'] = '@' . $path['user'];
-				}
-				if ( !empty( $path['pass'] ) ) {
-					$path['pass'] = ':' . $path['pass'];
-				}
-				$sitemap_path = $path['scheme'].'://'.$path['host'].$path['port'].$path['user'].'/'.$path['pass'];
-				/**/
 				$sitemap_path = str_replace( $path_parts['path'], '', $path );
 				// request gzip first; if not found, request .xml
 				// wp_remote_get() decompresses the response by default, so it should handle gzips just fine
