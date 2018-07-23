@@ -110,7 +110,9 @@ class HTML_Import extends WP_Importer {
 	}
 
 	function fix_internal_links( $content, $id ) {	
-		$html = file_get_html( $content );
+		$html = str_get_html( $content );
+		if ( !$html )
+			return $content;
 		foreach ( $html->find('a') as $link ) {
 			$post_id = $this->get_post_id_by_original_url( $link->href );
 			if ( $post_id && ! is_wp_error( $post_id ) )
@@ -160,6 +162,7 @@ class HTML_Import extends WP_Importer {
 		$file_id = media_handle_sideload( $file_array, $post_id, $desc );
 		if ( is_wp_error( $file_id ) )
 		    @unlink( $file_array['tmp_name'] );
+		update_post_meta( $file_id, 'URL_before_HTML_Import', esc_url_raw( $url ) );
 		return $file_id;
 	}
 	
@@ -167,22 +170,28 @@ class HTML_Import extends WP_Importer {
 		echo '<h2>'.__( 'Fixing relative links...', 'import-html-pages' ).'</h2>';
 		echo '<p>'.__( 'The importer is searching your imported posts for links. This might take a few minutes.', 'import-html-pages' ).'</p>';
 		
-		$fixedlinks = array(); 
+		if ( empty( $post_ids ) ) {
+			_e( 'No posts were found with the URL_before_HTML_Import custom field. Could not search for links.', 'import-html-pages' );
+			return;
+		}
+		
+		$fixedlinks = array();
 		foreach ( $post_ids as $post_id ) {
 			$new_post = array();
 			$new_post['ID'] = $post_id;
-			$new_post['post_content'] = $this->fix_internal_links( get_the_content( $post_id ), $post_id );
+			$content = get_post_field( 'post_content', $post_id );
+			$new_post['post_content'] = $this->fix_internal_links( $content, $post_id );
 		
 			if ( !empty( $new_post['post_content'] ) ) {
 				wp_update_post( $new_post );
-				$fixedlinks[] .= $id;
+				$fixedlinks[] .= $post_id;
 			}
 			
 		}
 		if ( !empty( $fixedlinks ) ) { ?>
 			<h3><?php _e( 'All done!', 'import-html-pages' ); ?></h3>
 		<?php }
-			else _e( 'No posts were found with the URL_before_HTML_Import custom field. Could not search for links.', 'import-html-pages' );
+			else _e( 'No posts were updated.', 'import-html-pages' );
 	}
 	
 	function handle_post_content( $url, $html_raw, $date_modified ) {
@@ -267,7 +276,7 @@ class HTML_Import extends WP_Importer {
 		
 		// simplehtmldom memory cleanup
 		$html->clear(); 
-		unset($html);
+		unset( $html );
 		
 		$post_id = wp_insert_post( $args );
 		//$post_id = 0;
@@ -292,11 +301,15 @@ class HTML_Import extends WP_Importer {
 		}
 	}
 	
-	function set_thumbnail( $post_id, $html_raw ) {
+	function set_thumbnail( $post_id ) {
 		if ( empty( $this->options['thumbnail_selector'] ) )
 			return false;
 		
-		$html = str_get_html( $html_raw );
+		$content = get_post_field( 'post_content', $post_id );
+		$html = str_get_html( $content );
+		if ( !$html )
+			return false;
+			
 		$img = $html->find( $this->options['thumbnail_selector'], 0 );
 		if ( !$img )
 			return false;
@@ -320,7 +333,7 @@ class HTML_Import extends WP_Importer {
 		update_post_meta( $post_id, '_thumbnail_id', $posts[0]->ID ); 
 		
 		$html->clear(); 
-		unset($html);
+		unset( $html );
 	}
 	
 	function import_single_url( $url ) {
@@ -344,6 +357,17 @@ class HTML_Import extends WP_Importer {
 		return $parent_id;
 	}
 	
+	function get_imported_posts() {
+		$args = array(
+			'fields' => 'ids',
+			'post_type' => 'any',
+			'post_status' => 'any',
+			'meta_key' => 'URL_before_HTML_Import',
+			'posts_per_page' => -1
+		);
+		return get_posts( $args );
+	}
+	
 	function crawl_sitemap() {
 		if ( !is_array( $this->url_queue ) )
 			return;
@@ -353,7 +377,7 @@ class HTML_Import extends WP_Importer {
 		foreach ( $this->url_queue as $index => $url_info ) {
 			$id = $this->import_single_url( $url_info['url'] );
 			$percentage = round( ( $index + 1 ) / $total * 100 );
-			do_action( 'html_import_display_progress', $percentage );
+			$this->display_progress( $percentage );
 			sleep(.1); // be polite to other people's servers
 		}
 		echo __( '<br />Done importing.', 'import-html-pages' );
@@ -396,10 +420,6 @@ class HTML_Import extends WP_Importer {
 		if ( false === ( $this->url_queue = get_transient( 'html_import_sitemap_urls' ) ) ) {
 			
 			if ( !isset( $path ) ) {
-				if ( filter_var( $this->options['get_path'], FILTER_VALIDATE_URL ) === FALSE ) {
-				    echo __( 'The URL given is not valid.', 'import-html-pages' );
-					return;
-				}
 				// trim any filename that might have been given in the path
 				$path_parts = parse_url( $this->options['get_path'] );
 				/*
@@ -502,15 +522,16 @@ class HTML_Import extends WP_Importer {
 		// Obey robots.txt, but allow plugins to override
 		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', true ) );
 
-		// Set the traffic-limit to 50 MB (in bytes); allow plugins to override this value
-		$crawler->setTrafficLimit( (int) apply_filters( 'html_import_crawler_traffic_limit', 50 * 1000 * 1024 ) );
+		// Set the traffic-limit to 100 MB (in bytes); allow plugins to override this value
+		$crawler->setTrafficLimit( (int) apply_filters( 'html_import_crawler_traffic_limit', 100 * 1000 * 1024 ) );
 		
 		// Allow plugins to set crawler depth
-		$depth = (int) apply_filters( 'html_import_crawler_depth', NULL );
+		/*
+		$depth = apply_filters( 'html_import_crawler_depth', NULL );
 		if ( $depth ) {
-			$crawler->setCrawlingDepthLimit( $depth );
+			$crawler->setCrawlingDepthLimit( absint( $depth ) );
 		}
-		
+		/**/
 		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 		
 		$crawler->go();
@@ -520,6 +541,7 @@ class HTML_Import extends WP_Importer {
 	
 	function receive_content( $DocInfo ) {
 		// handed off from PHPCrawl's handleDocumentInfo() method using 'html_import_receive_file' action
+		// see lib/class.HTMLImportCrawler.php
 		if ( 'text/html' !== $DocInfo->content_type ) {
 			$post_id = $this->handle_import_media_file( $DocInfo );
 		}
@@ -543,12 +565,7 @@ class HTML_Import extends WP_Importer {
 	function finish_phpcrawl( $crawler ) {
 		
 		// post-processing
-		$post_ids = get_posts( array(
-			'fields' => 'ids',
-			'post_type' => $this->options['type'],
-			'post_status' => $this->options['status'],
-			'meta_key' => 'URL_before_HTML_Import'
-		) );
+		$post_ids = $this->get_imported_posts();
 		if ( !is_wp_error( $post_ids ) ) {
 			if ( $this->options['fix_links'] ) {
 				$this->find_internal_links( $post_ids );
@@ -565,8 +582,8 @@ class HTML_Import extends WP_Importer {
 		// TODO: translate these strings
 		$report = $crawler->getProcessReport(); 
 		$lb = "<br />";
-		echo "Summary:" . $lb;
-		echo "Links in sitemap: " . count( $this->url_queue );
+		echo $lb . "Summary:" . $lb;
+		echo "Links in sitemap: " . count( $this->url_queue ) . $lb;
 		echo "Links followed: " . $report->links_followed . $lb;
 		echo "Documents received: " . $report->files_received . $lb;
 		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
@@ -620,7 +637,6 @@ class HTML_Import extends WP_Importer {
 		add_action( 'admin_print_styles-admin.php', array( &$this, 'importer_scripts_and_styles' ) );
 		add_filter( 'html_import_allowed_mime_types', array( &$this, 'mime_types' ), 1 );
 		add_action( 'html_import_receive_file',  array( &$this, 'receive_content' ) );
-		add_action( 'html_import_display_progress', array( &$this, 'display_progress' ) );
 	}
 }
 

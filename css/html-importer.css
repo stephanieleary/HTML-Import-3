@@ -1,4 +1,5 @@
 fieldset { margin: 0 0 1em; }
+#domains_to_crawl span.desc { display: block; margin-bottom: .5em; font-style: italic; }
 textarea#import-result { height: 12em; width: 100%; }
 #importing th { width: 32% } 
 #importing th#id { width: 4% }

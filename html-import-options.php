@@ -39,8 +39,8 @@ function html_import_options_page() { ?>
 			settings_fields( 'html_import' );
 			get_settings_errors( 'html_import' );	
 			$options = html_import_get_options();
-			$msg .= '<pre>'. print_r( $options, true ) .'</pre>';
-			echo $msg;
+			//$msg .= '<pre>'. print_r( $options, true ) .'</pre>';
+			//echo $msg;
 			$active_tab = 'html-import-settings-files';
 			if ( isset( $_REQUEST['tab'] ) ) {
 			    $active_tab = $_REQUEST[ 'tab' ];
@@ -74,19 +74,20 @@ function html_import_options_page() { ?>
 					</td>
 		        </tr>	
 		
-				<tr valign="top">
+				<tr valign="top" id="domains_to_crawl">
 			        <th scope="row"><?php _e( "Domains to crawl", 'import-html-pages' ); ?></th>
 			        <td><p>
 						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="1" 
 							<?php checked( $options['follow_mode'], '1' ); ?> />
-							<?php _e( 'This top-level domain, including subdomains (www.example.com and foo.example.com)', 'import-html-pages' ); ?> </label>
+							<?php _e( 'This top-level domain, including subdomains <span class="desc">(www.example.com and foo.example.com)</span>', 'import-html-pages' ); ?> </label>
 						<br />
 						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="2" 
-							<?php checked( $options['follow_mode'], '1' ); ?> />
-							<?php _e( 'This top-level domain, not including subdomains (www.example.com but not foo.example.com)', 'import-html-pages' ); ?> </label>
+							<?php checked( $options['follow_mode'], '2' ); ?> />
+							<?php _e( 'This top-level domain, not including subdomains <span class="desc">(www.example.com but not foo.example.com)</span>', 'import-html-pages' ); ?> </label>
+							<br />
 						<label><input name="html_import[follow_mode]" id="follow_mode" type="radio" value="3" 
 							<?php checked( $options['follow_mode'], '3' ); ?> />
-							<?php _e( 'This path and its subdirectories (www.example.com/foo and www.example.com/foo/bar but not www.example.com)', 'import-html-pages' ); ?> </label>
+							<?php _e( 'This path and its subdirectories <span class="desc">(www.example.com/foo and www.example.com/foo/bar but not www.example.com)</span>', 'import-html-pages' ); ?> </label>
 						</p>
 					</td>
 		        </tr>

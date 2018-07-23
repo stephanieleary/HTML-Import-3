@@ -11,13 +11,8 @@ class HTMLImportCrawler extends PHPCrawler {
 
 	    // Print if the content of the document was be recieved or not
 	    if ( $DocInfo->received == true ) {
-			// Now you should do something with the content of the actual
-		    // received page or file ($DocInfo->source) 
-
-			//$percentage = $this->DocumentInfoQueue->getDocumentInfoCount() / $this->queue_max_size * 100;
-			//do_action( 'html_import_display_progress', $percentage );
+			// hand the file off to html-importer.php
 			_e( 'OK.'.$lb, 'import-html-pages' );
-			
 			do_action( 'html_import_receive_file', $DocInfo );
 		}
 	    else
@@ -57,7 +52,7 @@ class HTMLImportCrawler extends PHPCrawler {
 	// remove <head> so we're searching only the body
 	// don't check $this->ignore_document_sections because we're not using any of the constants
 	$html = str_get_html( $html_source );
-	$head = $html->find('head', 0);
+	$head = $html->find( 'head', 0 );
 	if ( $head )
 		$html_source = str_replace( $head->outertext, '', $html_source );
   }
