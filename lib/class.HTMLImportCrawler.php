@@ -17,6 +17,7 @@ class HTMLImportCrawler extends PHPCrawler {
 			//$percentage = $this->DocumentInfoQueue->getDocumentInfoCount() / $this->queue_max_size * 100;
 			//do_action( 'html_import_display_progress', $percentage );
 			_e( 'OK.'.$lb, 'import-html-pages' );
+			
 			do_action( 'html_import_receive_file', $DocInfo );
 		}
 	    else

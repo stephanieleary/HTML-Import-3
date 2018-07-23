@@ -96,60 +96,34 @@ class HTML_Import extends WP_Importer {
 		else _e( 'No posts were found with the URL_before_HTML_Import custom field. Could not generate rewrite rules.', 'import-html-pages' );
 	}
 
-	function fix_hierarchy( $postid, $path ) {
-		$options = get_option( 'html_import' );
-		$parentdir = rtrim( $this->parent_directory( $path ), '/' );
+	function set_parent_id( $post_id ) {
+		$path = get_post_meta( $post_id, 'URL_before_HTML_Import', true );
+		$parent_dir = dirname( $path );
 		
-		// create array of parent directories, starting with the index file's parent and moving up to the root directory
-		while ( $parentdir != $options['root_directory'] ) {
-			$parentarr[] = $parentdir;
-			$parentdir = rtrim( $this->parent_directory( $parentdir ), '/' );
-		}
-		// reverse the array so we start at the root -- this way the parents can be found when we search in $this->get_post
-		$parentarr = array_reverse( $parentarr );
+		if ( $parent_dir == $this->options['get_path'] )
+			return;
 		
-//		echo '<pre>'.print_r( $parentarr, true ).'</pre>';
-		
-		foreach ( $parentarr as $parentdir ) {
-			$parentID = array_search( $parentdir, $this->filearr );
-			if ( $parentID === false )
-				$this->get_post( $parentdir, true );
-		}
-		
-		// now fix the parent ID of the original index file ( in $postid )
-		// it's the next to last element in the array we want. ( The last one is the index file. ) If this doesn't exist, we don't need to fix the parent.
-		$grandparent = count( $parentarr )-2;
-		if ( isset( $parentarr[$grandparent] ) ) {
-			$parentdir = $parentarr[$grandparent];
-			$my_post['ID'] = $postid;
-			$my_post['post_parent'] = array_search( $parentdir, $this->filearr );
-		
-			//echo "\n<pre>The parent of $postid should be ".$my_post['post_parent']."</pre>"; 
-		
-			if ( !empty( $my_post['post_parent'] ) )
-				wp_update_post( $my_post );
+		$parent_id = $this->get_post_id_by_original_url( $parent_dir );
+		if ( $parent_id && ! is_wp_error( $parent_id ) ) {
+			wp_update_post( array( 'ID' => $post_id, 'post_parent' => $parent_id ) );
 		}
 	}
 
 	function fix_internal_links( $content, $id ) {	
 		$html = file_get_html( $content );
-		// Find all links
 		foreach ( $html->find('a') as $link ) {
-			$old_url = $link->href;
-			$new_post_id = get_parent_id_by_referer( $url_before_import );
-			$new_url = get_permalink( $new_post_id );
-			$link->href = $new_url;
+			$post_id = $this->get_post_id_by_original_url( $link->href );
+			if ( $post_id && ! is_wp_error( $post_id ) )
+				$link->href = get_permalink( $post_id );
 		}
 		
-		return $html;
+		return $html->save();
 	}
 
 	function get_single_file( $txt = false ) {
 		set_magic_quotes_runtime( 0 );
 		$importfile = file( $this->file ); // Read the file into an array
 		$importfile = implode( '', $importfile ); // squish it
-		// this strips whitespace out of <pre>. Need to find a better way to handle that. For now, leave it alone.
-		//$this->file = str_replace( array ( "\r\n", "\r" ), "\n", $importfile );
 		$this->file = $importfile;
 		$this->get_post( '', false );
 	}
@@ -157,7 +131,7 @@ class HTML_Import extends WP_Importer {
 	function handle_import_media_file( $DocInfo ) {
 		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() );
 		if ( in_array( strtolower( $DocInfo->content_type ), $mimes ) ) {
-			$post_id = $this->get_parent_id_by_referer( $DocInfo->referer_url );
+			$post_id = $this->get_post_id_by_original_url( $DocInfo->referer_url );
 			$file_id = $this->sideload_file( $DocInfo->url, $post_id, urldecode( $DocInfo->file ) );
 			if ( is_wp_error( $file_id ) ) {
 				printf( __( 'Error: %s', 'import-html-pages' ), esc_html( $file_id->get_error_message() ) );
@@ -189,15 +163,15 @@ class HTML_Import extends WP_Importer {
 		return $file_id;
 	}
 	
-	function find_internal_links() {
+	function find_internal_links( $post_ids ) {
 		echo '<h2>'.__( 'Fixing relative links...', 'import-html-pages' ).'</h2>';
 		echo '<p>'.__( 'The importer is searching your imported posts for links. This might take a few minutes.', 'import-html-pages' ).'</p>';
 		
 		$fixedlinks = array(); 
-		foreach ( $this->filearr as $id => $path ) {
+		foreach ( $post_ids as $post_id ) {
 			$new_post = array();
-			$new_post['ID'] = $id;
-			$new_post['post_content'] = $this->fix_internal_links( get_the_content( $id ), $id );
+			$new_post['ID'] = $post_id;
+			$new_post['post_content'] = $this->fix_internal_links( get_the_content( $post_id ), $post_id );
 		
 			if ( !empty( $new_post['post_content'] ) ) {
 				wp_update_post( $new_post );
@@ -206,10 +180,9 @@ class HTML_Import extends WP_Importer {
 			
 		}
 		if ( !empty( $fixedlinks ) ) { ?>
-		<h3><?php _e( 'All done!', 'import-html-pages' ); ?></h3>
+			<h3><?php _e( 'All done!', 'import-html-pages' ); ?></h3>
 		<?php }
-		else _e( 'No posts were found with the URL_before_HTML_Import custom field. Could not search for links.', 'import-html-pages' );
-		//echo '<pre>'.print_r( $this->filearr, true ).'</pre>';
+			else _e( 'No posts were found with the URL_before_HTML_Import custom field. Could not search for links.', 'import-html-pages' );
 	}
 	
 	function handle_post_content( $url, $html_raw, $date_modified ) {
@@ -351,7 +324,6 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function import_single_url( $url ) {
-		//$response = wp_remote_get( 'http://www.example.com' );
 		$response = wp_remote_get( $url );
 		if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
 			
@@ -365,7 +337,7 @@ class HTML_Import extends WP_Importer {
 			echo esc_html( $response->get_error_message() ) . '<br />';
 	}
 	
-	function get_parent_id_by_referer( $url_before_import ) {
+	function get_post_id_by_original_url( $url_before_import ) {
 		global $wpdb;
 		$parent_id = $wpdb->get_var( $wpdb->prepare( "select post_id from {$wpdb->postmeta} where meta_key = %s and meta_value = %s", 'URL_before_HTML_Import', esc_url_raw( $url_before_import ) ) );
 		
@@ -428,13 +400,28 @@ class HTML_Import extends WP_Importer {
 				    echo __( 'The URL given is not valid.', 'import-html-pages' );
 					return;
 				}
+				// trim any filename that might have been given in the path
+				$path_parts = parse_url( $this->options['get_path'] );
+				/*
+				if ( !empty( $path['port'] ) ) {
+					$path['port'] = ':' . $path['port'];
+				}
+				if ( !empty( $path['user'] ) ) {
+					$path['user'] = '@' . $path['user'];
+				}
+				if ( !empty( $path['pass'] ) ) {
+					$path['pass'] = ':' . $path['pass'];
+				}
+				$sitemap_path = $path['scheme'].'://'.$path['host'].$path['port'].$path['user'].'/'.$path['pass'];
+				/**/
+				$sitemap_path = str_replace( $path_parts['path'], '', $path );
 				// request gzip first; if not found, request .xml
 				// wp_remote_get() decompresses the response by default, so it should handle gzips just fine
-				$sitemap = trailingslashit( $this->options['get_path'] ) . 'sitemap.xml.gz';
+				$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml.gz';
 				$response = wp_remote_get( $sitemap );
 				$response_code = wp_remote_retrieve_response_code( $response );
 				if ( 200 !== $response_code || is_wp_error( $response ) ) {
-					$sitemap = trailingslashit( $this->options['get_path'] ) . 'sitemap.xml';
+					$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml';
 					$response = wp_remote_get( $sitemap );
 				}
 			}
@@ -445,6 +432,7 @@ class HTML_Import extends WP_Importer {
 			if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
 				$body = wp_remote_retrieve_body( $response );
 				$element = new SimpleXMLElement( $body );
+				// handle nested sitemaps
 				if ( $element->getName() == 'sitemapindex' ) {
 					foreach ( $element->sitemap as $map ) {
 						$this->get_sitemap( $map->loc );
@@ -555,23 +543,21 @@ class HTML_Import extends WP_Importer {
 	function finish_phpcrawl( $crawler ) {
 		
 		// post-processing
-		$posts = get_posts( array(
+		$post_ids = get_posts( array(
 			'fields' => 'ids',
 			'post_type' => $this->options['type'],
 			'post_status' => $this->options['status'],
 			'meta_key' => 'URL_before_HTML_Import'
 		) );
-		if ( !is_wp_error( $posts ) ) {
+		if ( !is_wp_error( $post_ids ) ) {
 			if ( $this->options['fix_links'] ) {
-				// TODO: fix internal links
+				$this->find_internal_links( $post_ids );
 			}
-			foreach ( $posts as $post_id ) {
+			foreach ( $post_ids as $post_id ) {
 				if ( !empty( $this->options['thumbnail_selector'] ) ) {
 					$this->set_thumbnail( $post_id );
 				}
-				// TODO: fix parent hierarchy
-
-
+				$this->set_parent_id( $post_id );
 			}
 		}
 		
@@ -640,19 +626,11 @@ class HTML_Import extends WP_Importer {
 
 } // class_exists( 'WP_Importer' )
 
-$html_import = new HTML_Import();
-
-register_importer( 'html', __( 'HTML', 'import-html-pages' ), sprintf( __( 'Import the contents of HTML files as posts, pages, or any custom post type. Visit <a href="%s">the options page</a> first to select which portions of your documents should be imported.', 'import-html-pages' ), 'options-general.php?page=html-import.php' ), array ( $html_import, 'dispatch' ) );
-
-
-// in case this server doesn't have php_mbstring enabled in php.ini...
-if ( !function_exists( 'mb_strlen' ) ) {
-	function mb_strlen( $string ) {
-		return strlen( utf8_decode( $string ) );
-	}
+function html_importer_init() {
+	load_plugin_textdomain( 'html-import', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+	global $html_import;
+	$html_import = new HTML_Import();
+	register_importer( 'html', __( 'HTML', 'import-html-pages' ), sprintf( __( 'Import the contents of HTML files as posts, pages, or any custom post type. Visit <a href="%s">the options page</a> first to select which portions of your documents should be imported.', 'import-html-pages' ), 'options-general.php?page=html-import.php' ), array ( $html_import, 'dispatch' ) );
 }
-if ( !function_exists( 'mb_strrpos' ) ) {
-	function mb_strrpos( $haystack, $needle, $offset = 0 ) {
-		return strrpos( utf8_decode( $haystack ), $needle, $offset );
-	}
-}
+
+add_action( 'init', 'html_importer_init' );

@@ -28,6 +28,8 @@ Options:
 * remove a common phrase (such as the site name) from imported titles
 * remove the imported title from within the content area
 * upload a single file or scan a directory for files to import
+* specify file extensions to import (e.g. html, htm, php)
+* specify directories to exclude (e.g. images, css)
 * if importing pages (or any hierarchical post type), specify whether your top-level files should become top-level pages or children of an existing page
 * specify index file names (e.g. index.html, default.htm) whose contents should be used for the directory parent pages 
 * set tags, categories, and custom taxonomies
@@ -100,20 +102,22 @@ Yes.
 * Use get_allowed_mime_types() with filter 'html_import_allowed_mime_types' to specify document types to import instead of specifying MIME types in the options screen.
 * Adds 'html_import_crawler_traffic_limit' filter to allow overriding the default total traffic limit of 50MB
 * uses sitemaps.xml(.gz) to estimate the number of HTML files and display progress
-* handles sitemaps that are indexes of other sitemaps
+* handles sitemaps that are indexes of other sitemaps -- done
+* find_internal_links() -- done
+* fix parent hierarchy -- done
+* check whether phpcrawl is rewriting relative links -- done
+* use sitemap for estimating progress bar -- done
+* add setting for follow mode? in host = default; in path also an option and would simplify parents -- done
+* detect get_path type: valid URL, valid local directory path, single file upload -- done; local path no longer supported
 * TODO: 
 * move content handler to an AJAX function so large sites can be processed more gracefully.
 * Dreamweaver template regions as selectors:
 * 	// Find all comment (<!--...-->) blocks
 * 	// $es = $html->find('comment');
-* detect get_path type: valid URL, valid local directory path, single file upload
-* fix parent hierarchy
-* redo find_internal_links()
-* remove_from_title replacement isn't working
+* remove_from_title replacement isn't working?
 * ajaxify content & file handlers and progress bar
-* use sitemap for estimating progress bar
-* check whether phpcrawl is rewriting relative links
-* add setting for follow mode? in host = default; in path also an option and would simplify parents
+* check for existing old URL key and update existing post instead of creating new
+* add old URL key to images
 * LAST: update $crawler->setUserAgentString
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.
