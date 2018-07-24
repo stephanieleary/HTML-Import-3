@@ -115,6 +115,8 @@ Yes.
 * Dreamweaver template regions as selectors:
 * 	// Find all comment (<!--...-->) blocks
 * 	// $es = $html->find('comment');
+* crawl_sitemap() doesn't get called
+* kses option doesn't get checked
 * remove_from_title replacement isn't working?
 * check for existing old URL key and update existing post instead of creating new
 * LAST: update $crawler->setUserAgentString

@@ -226,7 +226,7 @@ class HTML_Import extends WP_Importer {
 		
 		$excerpt = '';
 		if ( $options['meta_desc'] ) {
-			$excerpt = $html->find("meta[name='description']", 0);
+			$excerpt = $html->find( "meta[name='description']", 0 );
 			if ( !empty( $excerpt ) )
 				$excerpt = sanitize_text_field( $excerpt->content );
 		}
@@ -390,19 +390,7 @@ class HTML_Import extends WP_Importer {
 		flush();
 	}
 	
-	// from $report = $crawler->getProcessReport(); 
-	// $percentage = round( count( $this->url_queue ) / $report->links_followed * 100 );
 	function display_progress( $percentage ) { 
-		/*
-		$report = $crawler->getProcessReport(); 
-		$lb = "<br />";
-		echo "Summary:" . $lb;
-		echo "Links in sitemap: " . count( $this->url_queue );
-		echo "Links followed: " . $report->links_followed . $lb;
-		echo "Documents received: " . $report->files_received . $lb;
-		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
-		echo "Process runtime: " . $report->process_runtime . " sec" . $lb;
-		/**/
 		?>
 		<script>
 			var percentage = <?php echo $percentage; ?>;
@@ -507,18 +495,16 @@ class HTML_Import extends WP_Importer {
 		$crawler->enableCookieHandling( true );
 		
 		// Obey robots.txt, but allow plugins to override
-		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', true ) );
+		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', false ) );
 
 		// Set the traffic-limit to 100 MB (in bytes); allow plugins to override this value
 		$crawler->setTrafficLimit( (int) apply_filters( 'html_import_crawler_traffic_limit', 100 * 1000 * 1024 ) );
 		
 		// Allow plugins to set crawler depth
-		/*
 		$depth = apply_filters( 'html_import_crawler_depth', NULL );
 		if ( $depth ) {
 			$crawler->setCrawlingDepthLimit( absint( $depth ) );
 		}
-		/**/
 		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 		
 		$crawler->go();
@@ -537,7 +523,10 @@ class HTML_Import extends WP_Importer {
 			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
 			if ( ! is_wp_error( $post_id ) ) {
 				$this->file_counter++;
-				$percentage = round( count( $this->url_queue ) / $this->file_counter * 100 );
+				if ( $this->url_queue > 1 )
+					$percentage = round( count( $this->url_queue ) / $this->file_counter * 100 );
+				else
+					$percentage = $this->file_counter; // just count
 				$this->display_progress( $percentage );
 			}
 		}
@@ -550,7 +539,6 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function finish_phpcrawl( $crawler ) {
-		
 		// post-processing
 		$post_ids = $this->get_imported_posts();
 		if ( !is_wp_error( $post_ids ) ) {
@@ -570,7 +558,10 @@ class HTML_Import extends WP_Importer {
 		$report = $crawler->getProcessReport(); 
 		$lb = "<br />";
 		echo $lb . "Summary:" . $lb;
-		echo "Links in sitemap: " . count( $this->url_queue ) . $lb;
+		if ( $this->url_queue )
+			echo "Links in sitemap: " . count( $this->url_queue ) . $lb;
+		else
+			echo "No sitemap file found." . $lb;
 		echo "Links followed: " . $report->links_followed . $lb;
 		echo "Documents received: " . $report->files_received . $lb;
 		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
