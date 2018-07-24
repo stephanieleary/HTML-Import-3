@@ -110,6 +110,8 @@ Yes.
 * add setting for follow mode? in host = default; in path also an option and would simplify parents -- done
 * detect get_path type: valid URL, valid local directory path, single file upload -- done; local path no longer supported
 * add old URL key to images -- done
+* check for existing media file before sideloading -- done
+* check for existing old URL key and maybe update existing post instead of creating new -- done
 * TODO: 
 * move content handler to an AJAX function so large sites can be processed more gracefully.
 * Dreamweaver template regions as selectors:
@@ -118,7 +120,7 @@ Yes.
 * crawl_sitemap() doesn't get called
 * kses option doesn't get checked
 * remove_from_title replacement isn't working?
-* check for existing old URL key and update existing post instead of creating new
+* find TODO translations
 * LAST: update $crawler->setUserAgentString
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.

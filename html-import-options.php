@@ -5,6 +5,7 @@ function html_import_get_options() {
 		'get_path' => '',
 		'follow_mode' => 2,		
 		'preserve_slugs' => 1,
+		'update_existing' => 0,
 		'status' => 'publish',
 		'root_parent' => 0,
 		'type' => 'page',
@@ -436,6 +437,7 @@ function html_import_validate_options( $input ) {
 	$options['title_inside'] = 		absint( $input['title_inside'] );
 	$options['clean_content'] = 	absint( $input['clean_content'] );
 	$options['preserve_slugs'] = 	absint( $input['preserve_slugs'] );
+	$options['update_existing'] = 	absint( $input['update_existing'] );
 	$options['import_images'] = 	absint( $input['import_images'] );
 	$options['import_documents'] = 	absint( $input['import_documents'] );
 	$options['fix_links'] = 		absint( $input['fix_links'] );

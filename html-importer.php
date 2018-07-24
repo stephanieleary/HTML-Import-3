@@ -28,6 +28,7 @@ class HTML_Import extends WP_Importer {
 	var $url_queue = array();
 	var $file;
 	var $options = array();
+	var $logging = 0;
 
 	function header() {
 		echo '<div class="wrap">';
@@ -97,13 +98,20 @@ class HTML_Import extends WP_Importer {
 	}
 
 	function set_parent_id( $post_id ) {
-		$path = get_post_meta( $post_id, 'URL_before_HTML_Import', true );
-		$parent_dir = dirname( $path );
+		if ( 'attachment' == get_post_type( $post_id ) ) {
+			$path = get_post_meta( $post_id, 'HTML_Import_referer', true );
+			$parent_id = $this->get_post_id_by_original_url( $path );
+		}
+		else {
+			$path = get_post_meta( $post_id, 'URL_before_HTML_Import', true );
+			$parent_dir = dirname( $path );
+
+			if ( $parent_dir == $this->options['get_path'] )
+				return;
+
+			$parent_id = $this->get_post_id_by_original_url( $parent_dir );
+		}
 		
-		if ( $parent_dir == $this->options['get_path'] )
-			return;
-		
-		$parent_id = $this->get_post_id_by_original_url( $parent_dir );
 		if ( $parent_id && ! is_wp_error( $parent_id ) ) {
 			wp_update_post( array( 'ID' => $post_id, 'post_parent' => $parent_id ) );
 		}
@@ -134,26 +142,27 @@ class HTML_Import extends WP_Importer {
 	
 	function handle_import_media_file( $DocInfo ) {
 		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() );
-		if ( in_array( strtolower( $DocInfo->content_type ), $mimes ) ) {
-			$post_id = $this->get_post_id_by_original_url( $DocInfo->referer_url );
-			$file_id = $this->sideload_file( $DocInfo->url, $post_id, urldecode( $DocInfo->file ) );
-			if ( is_wp_error( $file_id ) ) {
-				printf( __( 'Error: %s', 'import-html-pages' ), esc_html( $file_id->get_error_message() ) );
-				flush();
-			}
-			else {
-				printf( __( 'Imported as <a href="%s">file %d</a><br />', 'import-html-pages' ), wp_get_attachment_url( $file_id ), $file_id );
-				flush();
-			}
-		}
-		else {
+		if ( !in_array( strtolower( $DocInfo->content_type ), $mimes ) ) {
 			printf( __( 'Error: File type not allowed: %s', 'import-html-pages' ), $DocInfo->file );
 			flush();
 		}
+		
+		$parent_id = $this->get_post_id_by_original_url( $DocInfo->referer_url );
+		$file_id = $this->sideload_file( $DocInfo->url, $parent_id, urldecode( $DocInfo->file ), $DocInfo->referer_url );
+		if ( is_wp_error( $file_id ) ) {
+			printf( __( 'Error: %s', 'import-html-pages' ), esc_html( $file_id->get_error_message() ) );
+			flush();
+		}
+		else {
+			if ( $this->logging )
+				printf( __( 'Imported as <a href="%s">file %d</a><br />', 'import-html-pages' ), wp_get_attachment_url( $file_id ), $file_id );
+			flush();
+		}
+
 		return $file_id;
 	}
 	
-	function sideload_file( $url, $post_id, $desc ) {
+	function sideload_file( $url, $post_id, $desc, $referer ) {
 		$tmp = download_url( $url );	
 		if ( is_wp_error( $tmp ) )
 		    return $tmp;
@@ -165,6 +174,7 @@ class HTML_Import extends WP_Importer {
 		if ( is_wp_error( $file_id ) )
 		    @unlink( $file_array['tmp_name'] );
 		update_post_meta( $file_id, 'URL_before_HTML_Import', esc_url_raw( $url ) );
+		update_post_meta( $file_id, 'HTML_Import_referer', esc_url_raw( $referer ) );
 		return $file_id;
 	}
 	
@@ -295,9 +305,11 @@ class HTML_Import extends WP_Importer {
 			flush();
 		}
 		else {
-			$link = get_permalink( $post_id );
-			echo "Imported $title as <a href='$link'>{$options['type']} $post_id</a>.<br />";
-			flush();
+			if ( $this->logging ) {
+				$link = get_permalink( $post_id );
+				echo "Imported $title as <a href='$link'>{$options['type']} $post_id</a>.<br />";
+				flush();
+			}
 			return $post_id;
 		}
 	}
@@ -467,10 +479,13 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function start_phpcrawl() {
+		set_time_limit( 0 );
+		ini_set( 'memory_limit', '2048M' );
+		$this->options['update_existing'] = apply_filters( 'html_import_update_existing', $this->options['update_existing'] );
 		$crawler = new HTMLImportCrawler();
 		$this->crawler_id = $crawler->getCrawlerId();
 		$crawler->setURL( $this->options['get_path'] );
-
+		
 		// search for links in these file types
 		$crawler->addLinkSearchContentType( "#text/html# i" );
 		
@@ -497,14 +512,18 @@ class HTML_Import extends WP_Importer {
 		// Obey robots.txt, but allow plugins to override
 		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', false ) );
 
-		// Set the traffic-limit to 100 MB (in bytes); allow plugins to override this value
-		$crawler->setTrafficLimit( (int) apply_filters( 'html_import_crawler_traffic_limit', 100 * 1000 * 1024 ) );
+		// allow plugins to set a traffic limit
+		$limit = apply_filters( 'html_import_crawler_traffic_limit', 0 );
+		if ( $limit ) {
+			$crawler->setTrafficLimit( absint( $limit ) );
+		}
 		
 		// Allow plugins to set crawler depth
 		$depth = apply_filters( 'html_import_crawler_depth', NULL );
 		if ( $depth ) {
 			$crawler->setCrawlingDepthLimit( absint( $depth ) );
 		}
+
 		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 		
 		$crawler->go();
@@ -515,18 +534,34 @@ class HTML_Import extends WP_Importer {
 	function receive_content( $DocInfo ) {
 		// handed off from PHPCrawl's handleDocumentInfo() method using 'html_import_receive_file' action
 		// see lib/class.HTMLImportCrawler.php
+		
+		$post_exists = $this->get_post_id_by_original_url( $DocInfo->url );
+		
 		if ( 'text/html' !== $DocInfo->content_type ) {
-			$post_id = $this->handle_import_media_file( $DocInfo );
+			if ( ! $post_exists )
+				$post_id = $this->handle_import_media_file( $DocInfo );
 		}
 		else {
+			if ( ! $post_exists || $this->options['update_existing'] )
+			// rebuild URLs so they're all fully qualified
+			foreach ( $DocInfo->links_found as $link ) {
+				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
+					str_replace( $link['link_raw'], $link['url_rebuild'], $DocInfo->source );
+					if ( $this->logging == 'verbose' )
+						echo "Corrected " . $link['link_raw'] . ' to ' . $link['url_rebuild'] . "<br>";
+						// TODO: translate the above
+				}
+            }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
 			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
 			if ( ! is_wp_error( $post_id ) ) {
 				$this->file_counter++;
 				if ( $this->url_queue > 1 )
 					$percentage = round( count( $this->url_queue ) / $this->file_counter * 100 );
-				else
+				elseif ( $this->file_counter < 100 )
 					$percentage = $this->file_counter; // just count
+				else
+					$percentage = 100;
 				$this->display_progress( $percentage );
 			}
 		}
@@ -539,6 +574,7 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function finish_phpcrawl( $crawler ) {
+		$this->display_progress( 100 );
 		// post-processing
 		$post_ids = $this->get_imported_posts();
 		if ( !is_wp_error( $post_ids ) ) {
@@ -582,6 +618,7 @@ class HTML_Import extends WP_Importer {
 			case 1 :
 				check_admin_referer( 'html-import' );
 				$this->options = get_option( 'html_import' );
+				$this->logging = apply_filters( 'html_import_logging', 0 );
 				$this->file_counter = 0;
 				$this->get_sitemap();
 				$this->display_progress_bar();
