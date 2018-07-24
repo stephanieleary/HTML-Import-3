@@ -118,7 +118,7 @@ Yes.
 * 	// Find all comment (<!--...-->) blocks
 * 	// $es = $html->find('comment');
 * crawl_sitemap() doesn't get called
-* kses option doesn't get checked
+* kses option doesn't get checked. global $allowedtags vs $allowedposttags
 * remove_from_title replacement isn't working?
 * find TODO translations
 * LAST: update $crawler->setUserAgentString

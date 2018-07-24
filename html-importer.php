@@ -526,6 +526,10 @@ class HTML_Import extends WP_Importer {
 
 		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 		
+		// Allow plugins to add settings to the crawler
+		// see http://phpcrawl.cuab.de/classreferences/index.html
+		$crawler = apply_filters( 'html_import_phpcrawl_methods', $crawler );
+		
 		$crawler->go();
 		
 		return $crawler;
@@ -541,8 +545,7 @@ class HTML_Import extends WP_Importer {
 			if ( ! $post_exists )
 				$post_id = $this->handle_import_media_file( $DocInfo );
 		}
-		else {
-			if ( ! $post_exists || $this->options['update_existing'] )
+		elseif ( ! $post_exists || $this->options['update_existing'] ) {
 			// rebuild URLs so they're all fully qualified
 			foreach ( $DocInfo->links_found as $link ) {
 				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
