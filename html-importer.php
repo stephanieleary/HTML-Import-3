@@ -28,6 +28,7 @@ class HTML_Import extends WP_Importer {
 	var $sitemap = array();
 	var $file;
 	var $options = array();
+	var $crawler_id = NULL;
 	var $logging = 0;
 	var $file_counter = 0;
 	var $attachment_counter = 0;
