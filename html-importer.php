@@ -311,26 +311,25 @@ class HTML_Import extends WP_Importer {
 			$meta['_wp_page_template'] = $options['page_template'];
 		
 		// select & set custom fields
-		$customfields = array();
 		foreach ( $options['customfield_name'] as $index => $fieldname ) {
 			if ( !empty( $fieldname ) ) {
 				if ( '<!--' == substr( $options['customfield_selector'][$index], 0, 4 ) ) {
 					$custommatch = '/<!-- InstanceBeginEditable name="'.$options['customfield_selector'][$index].'" -->( .* )<!-- InstanceEndEditable -->/isU';
 					preg_match( $custommatch, $html_raw, $custommatches );
 					if ( isset( $custommatches[1] ) )
-						$customfields[$fieldname] = $custommatches[1];
+						$meta[$fieldname] = $custommatches[1];
 				}
-				else { // it's a tag
+				else {
 					$customfield = $html->find( $options['customfield_selector'][$index], 0 );
 					if ( $options['customfield_striptags'][$index] ) {
-						$customfield = $customfield->plaintext;
+						$meta[$fieldname] = $customfield->plaintext;
 					}
 					else {
 						global $allowedtags;
 						$allowed = apply_filters( 'html_import_allowed_tags_postmeta', $allowedtags );
-						$customfield = wp_kses( $customfield, $allowed );
+						$meta[$fieldname] = wp_kses( $customfield->innertext, $allowed );
 					}
-					$customfields[$fieldname] = $customfield;
+					
 					
 				}
 			}

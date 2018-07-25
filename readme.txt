@@ -114,9 +114,9 @@ Yes.
 * check for existing old URL key and maybe update existing post instead of creating new -- done
 * display counter if sitemap doesn't exist; otherwise display progress bar as well -- done
 * Dreamweaver template regions as selectors -- done
+* restore custom field support -- done
 * TODO: 
 * move content handler to an AJAX function so large sites can be processed more gracefully.
-* restore custom field support
 * crawl_sitemap() doesn't get called--skip URLs that are not in the queue if sitemap.xml(.gz) is in get_path
 * remove_from_title replacement isn't working?
 * find TODO translations
