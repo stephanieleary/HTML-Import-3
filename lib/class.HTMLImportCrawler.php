@@ -27,11 +27,7 @@ class HTMLImportCrawler extends PHPCrawler {
 	* Prepares a chunk of HTML before links get searched in it
 	*/
 	function prepareHTMLChunk(&$html_source) { 
-		global $html_import_doing_recon;
-		if ( $html_import_doing_recon ) {
-			return;
-		}
-			
+		
 		// WARNING:
 		// When modifying, test thhe following regexes on a huge page for preg_replace segfaults.
 		// Be sure to set the preg-groups to "non-capture" (?:...)!
