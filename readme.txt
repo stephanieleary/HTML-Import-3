@@ -116,8 +116,8 @@ Yes.
 * Dreamweaver template regions as selectors -- done
 * TODO: 
 * move content handler to an AJAX function so large sites can be processed more gracefully.
+* restore custom field support
 * crawl_sitemap() doesn't get called--skip URLs that are not in the queue if sitemap.xml(.gz) is in get_path
-* kses option doesn't get checked. global $allowedtags vs $allowedposttags
 * remove_from_title replacement isn't working?
 * find TODO translations
 * document new filters

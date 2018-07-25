@@ -108,14 +108,6 @@ function html_import_options_page() { ?>
   					</td>
 		        </tr>
 		
-		<?php
-		/*
-		Dreamweaver template reference:
-		<!-- InstanceBeginEditable name="foo" -->
-		<!-- InstanceEndEditable -->	
-		/**/
-		?>
-
 				<tr>
 				<th><?php _e( "More content options", 'import-html-pages' ); ?></th>
 				<td>
@@ -142,19 +134,6 @@ function html_import_options_page() { ?>
 				<td>
 					<label><input name="html_import[meta_desc]" id="meta_desc" value="1" type="checkbox" <?php checked( $options['meta_desc'] ); ?> /> 
 						 <?php _e( "Use meta description as excerpt", 'import-html-pages' ); ?></label>
-				</td>
-				</tr>
-				
-				<tr>
-				<th></th>
-				<td>
-					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="1" 
-						<?php checked( $options['clean_content'], '1' ); ?> />
-						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses_post()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses_post/' ), 'import-html-pages' ); ?> </label>
-					<br />
-					<label><input name="html_import[clean_content]" id="clean_content" type="radio" value="0" 
-						<?php checked( $options['clean_content'], '0' ); ?> />
-						<?php _e( sprintf( 'Clean HTML with <a href="%s">wp_kses()</a>', 'https://developer.wordpress.org/reference/functions/wp_kses/' ), 'import-html-pages' ); ?> </label>
 				</td>
 				</tr>
 			
@@ -224,7 +203,7 @@ function html_import_options_page() { ?>
 				<th><?php _e('Date selector', 'import-html-pages'); ?></th>
 				<td>
 					<input type="text" name="html_import[date_selector]" id="date_selector" value="<?php echo esc_attr( $options['date_selector'] ); ?>" placeholder="span.date" />
-				<p class="description"><?php _e( 'Enter __now, __filemtime, DC.date, or a CSS/jQuery selector.', 'import-html-pages' ); ?>
+				<p class="description"><?php _e( 'Enter __now, __filemtime, DC.date, a Dreamweaver template region, or a CSS/jQuery selector.', 'import-html-pages' ); ?>
 				</td>
 				</tr>
 				
@@ -416,6 +395,7 @@ function html_import_validate_options( $input ) {
 	$options['remove_from_title']		= sanitize_text_field( $input['remove_from_title'] );
 	$options['page_template']			= sanitize_text_field( $input['page_template'] );
 	$options['thumbnail_selector']		= sanitize_text_field( $input['thumbnail_selector'] );
+	$options['date_selector']			= sanitize_text_field( $input['date_selector'] );
 	$options['customfield_name']		= array_map( 'sanitize_text_field', (array) $input['customfield_name'] );
 	$options['customfield_striptags']	= array_map( 'absint', (array) $input['customfield_striptags'] );
 	$options['customfield_selector']	= array_map( 'sanitize_text_field', (array) $input['customfield_selector'] );
@@ -435,7 +415,6 @@ function html_import_validate_options( $input ) {
 	$options['follow_mode'] = 		absint( $input['follow_mode'] );
 	$options['meta_desc'] = 		absint( $input['meta_desc'] );
 	$options['title_inside'] = 		absint( $input['title_inside'] );
-	$options['clean_content'] = 	absint( $input['clean_content'] );
 	$options['preserve_slugs'] = 	absint( $input['preserve_slugs'] );
 	$options['update_existing'] = 	absint( $input['update_existing'] );
 	$options['import_images'] = 	absint( $input['import_images'] );

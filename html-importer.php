@@ -250,7 +250,8 @@ class HTML_Import extends WP_Importer {
 			$content = str_replace( $title_html, '', $content );
 			
 		// clean up HTML
-		$content = wp_kses( $content, wp_kses_allowed_html( 'post' ) );
+		$allowed = apply_filters( 'html_import_allowed_tags_content', wp_kses_allowed_html( 'post' ) );
+		$content = wp_kses( $content, $allowed );
 		
 		if ( $options['preserve_slugs'] ) {
 			$slug = stripslashes( parse_url( $url, PHP_URL_PATH ) );
@@ -298,6 +299,8 @@ class HTML_Import extends WP_Importer {
 		
 		if ( isset( $options['page_template'] ) && !empty( $options['page_template'] ) )
 			$meta['_wp_page_template'] = $options['page_template'];
+		
+		// TODO: select & set custom fields
 		
 		$args = apply_filters( 'html_import_insert_post_args', array( 
 			'post_title' => (string) $title,
