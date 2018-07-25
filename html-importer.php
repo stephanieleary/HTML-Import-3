@@ -312,6 +312,9 @@ class HTML_Import extends WP_Importer {
 		if ( isset( $options['page_template'] ) && !empty( $options['page_template'] ) )
 			$meta['_wp_page_template'] = $options['page_template'];
 		
+		global $allowedtags;
+		$allowed_in_postmeta = apply_filters( 'html_import_allowed_tags_postmeta', $allowedtags );
+		
 		// select & set custom fields
 		foreach ( $options['customfield_name'] as $index => $fieldname ) {
 			if ( !empty( $fieldname ) ) {
@@ -327,9 +330,7 @@ class HTML_Import extends WP_Importer {
 						$meta[$fieldname] = $customfield->plaintext;
 					}
 					else {
-						global $allowedtags;
-						$allowed = apply_filters( 'html_import_allowed_tags_postmeta', $allowedtags );
-						$meta[$fieldname] = wp_kses( $customfield->innertext, $allowed );
+						$meta[$fieldname] = wp_kses( $customfield->innertext, $allowed_in_postmeta );
 					}
 					
 					
