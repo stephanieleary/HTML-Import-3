@@ -455,9 +455,8 @@ class HTML_Import extends WP_Importer {
 	function display_progress_area() {
 		if ( !empty( $this->sitemap ) )
 			$this->display_progress_bar();
-		echo '<p class="progress-report">'._e(' Files: ', 'import-html-pages' ).'<span class="progress-file"> </span></p>';
-		echo '<p class="progress-report">'._e(' Attachments: ', 'import-html-pages' ).'<span class="progress-attachment"> </span></p>';
-		echo '<p><textarea id="request_log"></textarea></p>';
+		echo '<div class="progress">Files: <span class="progress-file"></span></div>';
+		echo '<div class="progress">Attachments: <span class="progress-attachment"></span></div>';
 		flush();
 	}
 	
@@ -478,19 +477,7 @@ class HTML_Import extends WP_Importer {
 		<script>
 			var count = <?php echo $count; ?>;
 			var type = <?php echo $type; ?>;
-			jQuery( ".progress-report .progress-" + type ).html( count );
-		</script>
-		<?php
-		flush();
-	}
-	
-	function log_request( $message ) {
-		?>
-		<script>
-			var msg = <?php echo $message; ?>;
-			jQuery('#request_log').val(function(_, val){
-			    return val + msg; 
-			});
+			jQuery( ".progress-" + type ).html( count );
 		</script>
 		<?php
 		flush();
@@ -746,7 +733,6 @@ class HTML_Import extends WP_Importer {
 		add_action( 'admin_print_styles-admin.php', array( &$this, 'importer_scripts_and_styles' ) );
 		add_filter( 'html_import_allowed_mime_types', array( &$this, 'mime_types' ), 1 );
 		add_action( 'html_import_receive_file',  array( &$this, 'receive_content' ) );
-		add_action( 'html_import_log_request',  array( &$this, 'log_requests' ) );
 	}
 }
 
