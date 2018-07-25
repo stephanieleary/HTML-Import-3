@@ -675,7 +675,7 @@ class HTML_Import extends WP_Importer {
 		$report = $crawler->getProcessReport(); 
 		$lb = "<br />";
 		echo $lb . "Summary:" . $lb;
-		if ( $this->sitemap )
+		if ( !empty( $this->sitemap ) )
 			echo "Links in sitemap: " . count( $this->sitemap ) . $lb;
 		echo "Links followed: " . $report->links_followed . $lb;
 		echo "Documents received: " . $report->files_received . $lb;
@@ -698,8 +698,6 @@ class HTML_Import extends WP_Importer {
 				check_admin_referer( 'html-import' );
 				$this->options = get_option( 'html_import' );
 				$this->logging = apply_filters( 'html_import_logging', 0 );
-				$this->file_counter = 0;
-				$this->attachment_counter = 0;
 				$this->get_sitemap();
 				$this->display_progress_area();
 				$crawler = $this->start_phpcrawl();
