@@ -270,7 +270,7 @@ class HTML_Import extends WP_Importer {
 		}
 		
 		$date = '';
-		if ( isset($options['date_selector']) ) {
+		if ( isset( $options['date_selector'] ) ) {
 			switch ( $options['date_selector'] ) {
 				case '__now':
 					break;
@@ -283,11 +283,20 @@ class HTML_Import extends WP_Importer {
 						$date = $date->content;
 					break;
 				default:
-					$date = $html->find( $options['date_selector'], 0 )->plaintext;
+					if ( '<!--' == substr( $options['date_selector'], 0, 4 ) ) {
+						$datematch = '/<!-- InstanceBeginEditable name="'.$options['date_selector'].'" -->( .* )<!-- InstanceEndEditable -->/isU';
+						preg_match( $datematch, $html_raw, $datematches );
+						$date = $datematches[1];
+					}
+					else {
+						$date = $html->find( $options['date_selector'], 0 )->plaintext;
+					}
+					
 					if ( !empty( $date ) )
 						$date = date( "Y-m-d H:i:s", strtotime( $date ) );
 					break;
 			}
+			
 		}
 		if ( empty( $date ) )
 			$date = date( "Y-m-d H:i:s", time() );
@@ -301,7 +310,32 @@ class HTML_Import extends WP_Importer {
 		if ( isset( $options['page_template'] ) && !empty( $options['page_template'] ) )
 			$meta['_wp_page_template'] = $options['page_template'];
 		
-		// TODO: select & set custom fields
+		// select & set custom fields
+		$customfields = array();
+		foreach ( $options['customfield_name'] as $index => $fieldname ) {
+			if ( !empty( $fieldname ) ) {
+				if ( '<!--' == substr( $options['customfield_selector'][$index], 0, 4 ) ) {
+					$custommatch = '/<!-- InstanceBeginEditable name="'.$options['customfield_selector'][$index].'" -->( .* )<!-- InstanceEndEditable -->/isU';
+					preg_match( $custommatch, $html_raw, $custommatches );
+					if ( isset( $custommatches[1] ) )
+						$customfields[$fieldname] = $custommatches[1];
+				}
+				else { // it's a tag
+					$customfield = $html->find( $options['customfield_selector'][$index], 0 );
+					if ( $options['customfield_striptags'][$index] ) {
+						$customfield = $customfield->plaintext;
+					}
+					else {
+						global $allowedtags;
+						$allowed = apply_filters( 'html_import_allowed_tags_postmeta', $allowedtags );
+						$customfield = wp_kses( $customfield, $allowed );
+					}
+					$customfields[$fieldname] = $customfield;
+					
+				}
+			}
+		}
+		
 		
 		$args = apply_filters( 'html_import_insert_post_args', array( 
 			'post_title' => (string) $title,
