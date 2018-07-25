@@ -141,7 +141,7 @@ class HTML_Import extends WP_Importer {
 		$importfile = file( $this->file ); // Read the file into an array
 		$importfile = implode( '', $importfile ); // squish it
 		$this->file = $importfile;
-		$this->handle_post_content( '', $this->file, '' );
+		$this->handle_post_content( NULL, '', $this->file, '' );
 	}
 	
 	function handle_import_media_file( $DocInfo ) {
@@ -210,7 +210,7 @@ class HTML_Import extends WP_Importer {
 			else _e( 'No posts were updated.', 'import-html-pages' );
 	}
 	
-	function handle_post_content( $url, $html_raw, $date_modified ) {
+	function handle_post_content( $post_id = NULL, $url, $html_raw, $date_modified ) {
 		$options = $this->options;
 		$html = str_get_html( $html_raw );
 		if ( empty( $html ) )
@@ -337,8 +337,7 @@ class HTML_Import extends WP_Importer {
 			}
 		}
 		
-		
-		$args = apply_filters( 'html_import_insert_post_args', array( 
+		$args = array(
 			'post_title' => (string) $title,
 			'post_content' => (string) $content,
 			'post_excerpt' => (string) $excerpt,
@@ -348,7 +347,10 @@ class HTML_Import extends WP_Importer {
 			'post_author' => (int) $author,
 			'post_date' => (string) $date,
 			'meta_input' => $meta
-		) );
+		);
+		if ( $options['update_existing'] && isset( $post_id ) && ! empty( $post_id ) )
+			$args['ID'] = $post_id;
+		$args = apply_filters( 'html_import_insert_post_args', $args );
 		
 		// simplehtmldom memory cleanup
 		$html->clear(); 
@@ -420,7 +422,7 @@ class HTML_Import extends WP_Importer {
 			$body = wp_remote_retrieve_body( $response );
 			$date = wp_remote_retrieve_header( $response, 'last-modified' );
 			// pass the contents to SimpleHTMLDom
-			$post_id = $this->handle_post_content( $url, $body, $date );
+			$post_id = $this->handle_post_content( NULL, $url, $body, $date );
 		} 
 		else
 			echo esc_html( $response->get_error_message() ) . '<br />';
@@ -638,7 +640,7 @@ class HTML_Import extends WP_Importer {
 				}
             }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
-			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
+			$post_id = $this->handle_post_content( $post_exists, $DocInfo->url, $DocInfo->source, $date );
 			if ( ! is_wp_error( $post_id ) ) {
 				$this->file_counter++;
 				if ( !empty( $this->sitemap ) ) {
