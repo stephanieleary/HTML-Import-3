@@ -10,16 +10,17 @@ class HTMLImportCrawler extends PHPCrawler {
 	    else $lb = "<br />";
 
 	    // Print the URL and the HTTP-status-Code
-	    echo "Requested: ".$DocInfo->url." (".$DocInfo->http_status_code.")... ";
+		// TODO: Translate
+		do_action( 'html_import_log_request', "Requested: ".$DocInfo->url." (".$DocInfo->http_status_code.")... " );
 
 	    // Print if the content of the document was be recieved or not
 	    if ( $DocInfo->received == true ) {
-			_e( 'OK.'.$lb, 'import-html-pages' );
+			do_action( 'html_import_log_request', _e( 'OK.'.$lb, 'import-html-pages' ) );
 			// hand the file off to html-importer.php
 			do_action( 'html_import_receive_file', $DocInfo );
 		}
 	    else
-	    	_e( 'Not received.'.$lb, 'import-html-pages' );
+			do_action( 'html_import_log_request', _e( 'Not received.'.$lb, 'import-html-pages' ) );
 
 	    flush();
 	}
