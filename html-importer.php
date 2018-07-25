@@ -534,6 +534,7 @@ class HTML_Import extends WP_Importer {
 		$ns = $urlset->getNamespaces(true);
 		foreach ( $urlset->url as $uri ) {
 			$images = $uri->children($ns['image']);
+			$img_arr = array();
 			if ( !empty( $images->image ) ) {
 				$img_arr = (array) $images->image; // array keys: loc, title, caption
 				$img_arr['title'] = (string) $img_arr['title'] ;
