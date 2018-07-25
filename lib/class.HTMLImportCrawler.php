@@ -3,16 +3,24 @@
 class HTMLImportCrawler extends PHPCrawler {
 
 	function handleDocumentInfo( PHPCrawlerDocumentInfo $DocInfo ) {
-	    // Print the URL and the HTTP-status-Code
-		do_action( 'html_import_log_request', sprintf( 'Requested: %s ... (%d) ', $DocInfo->url, $DocInfo->http_status_code ) );
+		// TODO: translate
+		
+		// Just detect linebreak for output ("\n" in CLI-mode, otherwise "<br>").
+	    if (PHP_SAPI == "cli") $lb = "\n";
+	    else $lb = "<br />";
 
+	    // Print the URL and the HTTP-status-Code
+		// TODO: Translate
+		do_action( 'html_import_log_request', "Requested: ".$DocInfo->url." (".$DocInfo->http_status_code.")... " );
+
+	    // Print if the content of the document was be recieved or not
 	    if ( $DocInfo->received == true ) {
-			do_action( 'html_import_log_request', _e( 'OK.', 'import-html-pages' ) );
+			do_action( 'html_import_log_request', _e( 'OK.'.$lb, 'import-html-pages' ) );
 			// hand the file off to html-importer.php
 			do_action( 'html_import_receive_file', $DocInfo );
 		}
 	    else
-			do_action( 'html_import_log_request', _e( 'Not received.', 'import-html-pages' ) );
+			do_action( 'html_import_log_request', _e( 'Not received.'.$lb, 'import-html-pages' ) );
 
 	    flush();
 	}
