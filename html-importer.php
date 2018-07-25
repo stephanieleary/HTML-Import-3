@@ -632,10 +632,9 @@ class HTML_Import extends WP_Importer {
 			// rebuild URLs so they're all fully qualified
 			foreach ( $DocInfo->links_found as $link ) {
 				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
-					str_replace( $link['link_raw'], $link['url_rebuild'], $DocInfo->source );
+					str_replace( $link['link_raw'], esc_url( $link['url_rebuild'] ), $DocInfo->source );
 					if ( $this->logging > 1 )
-						echo "Corrected " . $link['link_raw'] . ' to ' . $link['url_rebuild'] . "<br>";
-						// TODO: translate the above
+						printf( "Corrected %s to %s<br>", esc_url( $link['link_raw'] ), esc_url( $link['url_rebuild'] ) );
 				}
             }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
