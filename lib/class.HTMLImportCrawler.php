@@ -9,7 +9,7 @@ class HTMLImportCrawler extends PHPCrawler {
 	    else $lb = "<br />";
 
 	    // Print the URL and the HTTP-status-Code
-	    printf( 'Requested: %s ... (%d) ', $DocInfo->url, $DocInfo->http_status_code );
+	    printf( __( 'Requested: %s ... (%d) ', 'import-html-pages' ), $DocInfo->url, $DocInfo->http_status_code );
 	
 	    // Print if the content of the document was be recieved or not
 	    if ( $DocInfo->received == true ) {
