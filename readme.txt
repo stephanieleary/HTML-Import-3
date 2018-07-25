@@ -112,15 +112,15 @@ Yes.
 * add old URL key to images -- done
 * check for existing media file before sideloading -- done
 * check for existing old URL key and maybe update existing post instead of creating new -- done
+* display counter if sitemap doesn't exist; otherwise display progress bar as well -- done
+* Dreamweaver template regions as selectors -- done
 * TODO: 
 * move content handler to an AJAX function so large sites can be processed more gracefully.
-* Dreamweaver template regions as selectors:
-* 	// Find all comment (<!--...-->) blocks
-* 	// $es = $html->find('comment');
-* crawl_sitemap() doesn't get called
+* crawl_sitemap() doesn't get called--skip URLs that are not in the queue if sitemap.xml(.gz) is in get_path
 * kses option doesn't get checked. global $allowedtags vs $allowedposttags
 * remove_from_title replacement isn't working?
 * find TODO translations
+* document new filters
 * LAST: update $crawler->setUserAgentString
 = 2.5.1 =
 * Fixed warnings and notices related to the custom category walker.

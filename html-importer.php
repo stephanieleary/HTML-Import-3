@@ -25,10 +25,12 @@ if ( class_exists( 'WP_Importer' ) ) {
 class HTML_Import extends WP_Importer {
 
 	var $posts = array();
-	var $url_queue = array();
+	var $sitemap = array();
 	var $file;
 	var $options = array();
 	var $logging = 0;
+	var $file_counter = 0;
+	var $attachment_counter = 0;
 
 	function header() {
 		echo '<div class="wrap">';
@@ -120,7 +122,7 @@ class HTML_Import extends WP_Importer {
 	function fix_internal_links( $post_id ) {	
 		$content = get_post_field( 'post_content', $post_id );
 		$html = str_get_html( $content );
-		if ( !$html )
+		if ( empty( $html ) )
 			return $content;
 			
 		foreach ( $html->find('a') as $link ) {
@@ -208,22 +210,46 @@ class HTML_Import extends WP_Importer {
 	function handle_post_content( $url, $html_raw, $date_modified ) {
 		$options = $this->options;
 		$html = str_get_html( $html_raw );
+		if ( empty( $html ) )
+			return false;
+				
+		if ( '<!--' == substr( $options['title_selector'], 0, 4 ) ) {
+			$titlematch = '/<!-- InstanceBeginEditable name="'.$options['title_selector'].'" -->( .* )<!-- InstanceEndEditable -->/isU';
+			preg_match( $titlematch, $html_raw, $titlematches );
+			$title = strip_tags( trim( $titlematches[1] ) );
+		}
+		else {
+			$title = $html->find( $options['title_selector'], 0 );
+			if ( !empty( $title ) ) {
+				$title_html = $title->outertext;
+				$title = $title->plaintext;
+			}
+		}
 		
-		$title = $html->find( $options['title_selector'], 0 );
-		$title_html = $title->outertext;
-		$title = $title->plaintext;
+		// remove phrases from title
 		if ( !empty( $options['remove_from_title'] ) )
 			$title = str_replace( $options['remove_from_title'], '', $title );
 		// put it back if the title is now empty
 		if ( empty( $title ) )
 			$title = $options['remove_from_title'];
 			
-		$content = $html->find( $options['content_selector'], 0 );
-		if ( !empty( $content ) )
-			$content = $content->innertext;
+		if ( '<!--' == substr( $options['content_selector'], 0, 4 ) ) {
+			$contentmatch = '/<!-- InstanceBeginEditable name="'.$options['content_selector'].'" -->( .* )<!-- InstanceEndEditable -->/isU';
+			preg_match( $contentmatch, $html_raw, $contentmatches );
+			$content = $contentmatches[1];
+		}
+		else {
+			$content = $html->find( $options['content_selector'], 0 );
+			if ( !empty( $content ) ) {
+				$content = $content->innertext;
+			}
+		}
+		
 		// remove inner titles before cleaning up HTML
 		if ( $options['title_inside'] )
 			$content = str_replace( $title_html, '', $content );
+			
+		// clean up HTML
 		$content = wp_kses( $content, wp_kses_allowed_html( 'post' ) );
 		
 		if ( $options['preserve_slugs'] ) {
@@ -274,14 +300,14 @@ class HTML_Import extends WP_Importer {
 			$meta['_wp_page_template'] = $options['page_template'];
 		
 		$args = apply_filters( 'html_import_insert_post_args', array( 
-			'post_title' => $title,
-			'post_content' => $content,
+			'post_title' => (string) $title,
+			'post_content' => (string) $content,
 			'post_excerpt' => (string) $excerpt,
-			'post_type' => $options['type'],
-			'post_status' => $options['status'],
-			'post_name' => $slug,
-			'post_author' => $author,
-			'post_date' => $date,
+			'post_type' => (string) $options['type'],
+			'post_status' => (string) $options['status'],
+			'post_name' => (string) $slug,
+			'post_author' => (int) $author,
+			'post_date' => (string) $date,
 			'meta_input' => $meta
 		) );
 		
@@ -380,12 +406,12 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function crawl_sitemap() {
-		if ( !is_array( $this->url_queue ) )
+		if ( !is_array( $this->sitemap ) )
 			return;
 		
-		$total = count( $this->url_queue );
+		$total = count( $this->sitemap );
 
-		foreach ( $this->url_queue as $index => $url_info ) {
+		foreach ( $this->sitemap as $index => $url_info ) {
 			$id = $this->import_single_url( $url_info['url'] );
 			$percentage = round( ( $index + 1 ) / $total * 100 );
 			$this->display_progress( $percentage );
@@ -395,10 +421,18 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function display_progress_bar() {
-		echo '<div class="progress"">
+		echo '<div class="progress">
 		  <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"> 
 			<span id="valuenow">0%</span> 
 		  </div></div>';
+		flush();
+	}
+	
+	function display_progress_area() {
+		if ( !empty( $this->sitemap ) )
+			$this->display_progress_bar();
+		echo '<div class="progress">Files: <span class="progress-file"></span></div>';
+		echo '<div class="progress">Attachments: <span class="progress-attachment"></span></div>';
 		flush();
 	}
 	
@@ -414,14 +448,29 @@ class HTML_Import extends WP_Importer {
 		flush();
 	}
 	
+	function display_counter( $count, $type = 'file' ) {
+		?>
+		<script>
+			var count = <?php echo $count; ?>;
+			var type = <?php echo $type; ?>;
+			jQuery( ".progress-" + type ).html( count );
+		</script>
+		<?php
+		flush();
+	}
+	
 	function get_sitemap( $path = NULL ) {
-		
-		if ( false === ( $this->url_queue = get_transient( 'html_import_sitemap_urls' ) ) ) {
-			
-			if ( !isset( $path ) ) {
+					
+		if ( !isset( $path ) ) {
+			// user might have entered the sitemap URL directly
+			$filename = basename( $this->options['get_path'] );
+			if ( $filename == 'sitemap.xml' || $filename == 'sitemap.xml.gz' ) {
+				$response = wp_remote_get( $this->options['get_path'] );
+			}
+			else {
 				// trim any filename that might have been given in the path
 				$path_parts = parse_url( $this->options['get_path'] );
-				$sitemap_path = str_replace( $path_parts['path'], '', $path );
+				$sitemap_path = str_replace( $path_parts['path'], '', $this->options['get_path'] );
 				// request gzip first; if not found, request .xml
 				// wp_remote_get() decompresses the response by default, so it should handle gzips just fine
 				$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml.gz';
@@ -432,31 +481,28 @@ class HTML_Import extends WP_Importer {
 					$response = wp_remote_get( $sitemap );
 				}
 			}
-			else {
-				$response = wp_remote_get( $path );
-			}	
-		
-			if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
-				$body = wp_remote_retrieve_body( $response );
-				$element = new SimpleXMLElement( $body );
-				// handle nested sitemaps
-				if ( $element->getName() == 'sitemapindex' ) {
-					foreach ( $element->sitemap as $map ) {
-						$this->get_sitemap( $map->loc );
-					}
-				}
-				elseif ( $element->getName() == 'urlset' ) {
-					get_sitemap_urls( $element );
-				}
-				
-			} 
-			else
-				echo esc_html( $response->get_error_message() );
+			
 		}
-		
-		if ( ! empty( $this->url_queue ) ) {
-			set_transient( 'html_import_sitemap_urls', $this->url_queue, HOUR_IN_SECONDS );
-		}
+		else {
+			$response = wp_remote_get( $path );
+		}	
+	
+		if ( wp_remote_retrieve_response_code( $response ) == 200 && ! is_wp_error( $response ) ) {
+			$body = wp_remote_retrieve_body( $response );
+			$element = new SimpleXMLElement( $body );
+			// handle nested sitemaps
+			if ( $element->getName() == 'sitemapindex' ) {
+				foreach ( $element->sitemap as $map ) {
+					$this->get_sitemap( $map->loc );
+				}
+			}
+			elseif ( $element->getName() == 'urlset' ) {
+				get_sitemap_urls( $element );
+			}
+			
+		} 
+		else
+			echo esc_html( $response->get_error_message() );
 		
 	}
 	
@@ -474,7 +520,7 @@ class HTML_Import extends WP_Importer {
 				'lastmod' => (string) $uri->lastmod,
 				'images' => $img_arr,
 			);
-			array_merge( $this->url_queue, $new_urls );
+			array_merge( $this->sitemap, $new_urls );
 		}
 	}
 	
@@ -497,12 +543,13 @@ class HTML_Import extends WP_Importer {
 		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() ); 
 		
 		foreach ( $mimes as $mime ) {
-			$crawler->addContentTypeReceiveRule( '#' . (string) $mime . '# i' );
+			if ( 'application/pdf' !== $mime )
+				$crawler->addContentTypeReceiveRule( '#' . (string) $mime . '# i' );
 		}
 		
 		// PDF is buggy for some reason; add the extension explicitly as well as the mime type
-		$crawler->addContentTypeReceiveRule( "#application/pdf# i" );
-		$crawler->addContentTypeReceiveRule( "#\.(pdf)$# i" );
+		//$crawler->addContentTypeReceiveRule( "#application/pdf# i" );
+		//$crawler->addContentTypeReceiveRule( "#\.(pdf)$# i" );
 
 		$crawler->setUserAgentString( apply_filters( 'html_import_user_agent', 'WordPress-HTMLImport3(alpha)' ) );
 
@@ -542,30 +589,34 @@ class HTML_Import extends WP_Importer {
 		$post_exists = $this->get_post_id_by_original_url( $DocInfo->url );
 		
 		if ( 'text/html' !== $DocInfo->content_type ) {
-			if ( ! $post_exists )
+			$this->attachment_counter++;
+			if ( ! $post_exists ) {
 				$post_id = $this->handle_import_media_file( $DocInfo );
+				$this->display_counter( $this->attachment_counter, 'attachment' );
+			}
 		}
 		elseif ( ! $post_exists || $this->options['update_existing'] ) {
 			// rebuild URLs so they're all fully qualified
 			foreach ( $DocInfo->links_found as $link ) {
 				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
 					str_replace( $link['link_raw'], $link['url_rebuild'], $DocInfo->source );
+					/*
 					if ( $this->logging == 'verbose' )
 						echo "Corrected " . $link['link_raw'] . ' to ' . $link['url_rebuild'] . "<br>";
 						// TODO: translate the above
+					/**/
 				}
             }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
 			$post_id = $this->handle_post_content( $DocInfo->url, $DocInfo->source, $date );
 			if ( ! is_wp_error( $post_id ) ) {
 				$this->file_counter++;
-				if ( $this->url_queue > 1 )
-					$percentage = round( count( $this->url_queue ) / $this->file_counter * 100 );
-				elseif ( $this->file_counter < 100 )
-					$percentage = $this->file_counter; // just count
-				else
-					$percentage = 100;
-				$this->display_progress( $percentage );
+				if ( !empty( $this->sitemap ) ) {
+					$percentage = round( $this->file_counter / count( $this->sitemap ) * 100 );
+					$this->display_progress( $percentage );
+				}
+				$this->display_counter( $this->file_counter, 'file' );
+				
 			}
 		}
 	}
@@ -577,10 +628,10 @@ class HTML_Import extends WP_Importer {
 	}
 	
 	function finish_phpcrawl( $crawler ) {
-		$this->display_progress( 100 );
+		//$this->display_progress( 100 );
 		// post-processing
 		$post_ids = $this->get_imported_posts();
-		if ( !is_wp_error( $post_ids ) ) {
+		if ( !empty( $post_ids ) && !is_wp_error( $post_ids ) ) {
 			if ( $this->options['fix_links'] ) {
 				$this->find_internal_links( $post_ids );
 			}
@@ -597,17 +648,15 @@ class HTML_Import extends WP_Importer {
 		$report = $crawler->getProcessReport(); 
 		$lb = "<br />";
 		echo $lb . "Summary:" . $lb;
-		if ( $this->url_queue )
-			echo "Links in sitemap: " . count( $this->url_queue ) . $lb;
-		else
-			echo "No sitemap file found." . $lb;
+		if ( $this->sitemap )
+			echo "Links in sitemap: " . count( $this->sitemap ) . $lb;
 		echo "Links followed: " . $report->links_followed . $lb;
 		echo "Documents received: " . $report->files_received . $lb;
 		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
 		echo "Process runtime: " . $report->process_runtime . " sec" . $lb;
 		echo "Done." . $lb;
 	}
-	
+
 	function dispatch() {
 		
 		$step = absint( $_REQUEST['step'] );
@@ -623,8 +672,9 @@ class HTML_Import extends WP_Importer {
 				$this->options = get_option( 'html_import' );
 				$this->logging = apply_filters( 'html_import_logging', 0 );
 				$this->file_counter = 0;
+				$this->attachment_counter = 0;
 				$this->get_sitemap();
-				$this->display_progress_bar();
+				$this->display_progress_area();
 				$crawler = $this->start_phpcrawl();
 				$this->finish_phpcrawl( $crawler );
 				break;
