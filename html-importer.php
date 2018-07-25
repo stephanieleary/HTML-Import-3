@@ -636,7 +636,7 @@ class HTML_Import extends WP_Importer {
 				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
 					str_replace( $link['link_raw'], esc_url( $link['url_rebuild'] ), $DocInfo->source );
 					if ( $this->logging > 1 )
-						printf( "Corrected %s to %s<br>", esc_url( $link['link_raw'] ), esc_url( $link['url_rebuild'] ) );
+						printf( __( "Corrected %s to %s<br>", 'import-html-pages' ), esc_url( $link['link_raw'] ), esc_url( $link['url_rebuild'] ) );
 				}
             }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
