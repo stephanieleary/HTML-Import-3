@@ -146,21 +146,22 @@ class HTML_Import extends WP_Importer {
 	
 	function handle_import_media_file( $DocInfo ) {
 		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() );
-		if ( !in_array( strtolower( $DocInfo->content_type ), $mimes ) ) {
+		if ( !in_array( strtolower( $DocInfo->content_type ), $mimes ) && $this->logging > 0 ) {
 			printf( __( 'Error: File type not allowed: %s', 'import-html-pages' ), $DocInfo->file );
 			flush();
 		}
 		
 		$parent_id = $this->get_post_id_by_original_url( $DocInfo->referer_url );
 		$file_id = $this->sideload_file( $DocInfo->url, $parent_id, urldecode( $DocInfo->file ), $DocInfo->referer_url );
-		if ( is_wp_error( $file_id ) ) {
+		if ( is_wp_error( $file_id ) && $this->logging > 0 ) {
 			printf( __( 'Error: %s', 'import-html-pages' ), esc_html( $file_id->get_error_message() ) );
 			flush();
 		}
 		else {
-			if ( $this->logging )
+			if ( $this->logging > 0 ) {
 				printf( __( 'Imported as <a href="%s">file %d</a><br />', 'import-html-pages' ), wp_get_attachment_url( $file_id ), $file_id );
-			flush();
+				flush();
+			}
 		}
 
 		return $file_id;
@@ -369,7 +370,7 @@ class HTML_Import extends WP_Importer {
 			flush();
 		}
 		else {
-			if ( $this->logging ) {
+			if ( $this->logging > 0 ) {
 				$link = get_permalink( $post_id );
 				echo "Imported $title as <a href='$link'>{$options['type']} $post_id</a>.<br />";
 				flush();
@@ -497,12 +498,12 @@ class HTML_Import extends WP_Importer {
 				$sitemap_path = str_replace( $path_parts['path'], '', $this->options['get_path'] );
 				// request gzip first; if not found, request .xml
 				// wp_remote_get() decompresses the response by default, so it should handle gzips just fine
-				$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml.gz';
-				$response = wp_remote_get( $sitemap );
+				$path = trailingslashit( $sitemap_path ) . 'sitemap.xml.gz';
+				$response = wp_remote_get( $path );
 				$response_code = wp_remote_retrieve_response_code( $response );
 				if ( 200 !== $response_code || is_wp_error( $response ) ) {
 					$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml';
-					$response = wp_remote_get( $sitemap );
+					$response = wp_remote_get( $path );
 				}
 			}
 			
@@ -524,9 +525,12 @@ class HTML_Import extends WP_Importer {
 				get_sitemap_urls( $element );
 			}
 			
-		} 
-		else
-			echo esc_html( $response->get_error_message() );
+		}
+ 
+		if ( is_wp_error( $response ) && $this->logging > 0 ) {
+			$error_message = $response->get_error_message();
+			echo $error_message;
+		}
 		
 	}
 	
@@ -628,11 +632,9 @@ class HTML_Import extends WP_Importer {
 			foreach ( $DocInfo->links_found as $link ) {
 				if ( 0 != strcmp( $link['link_raw'], $link['url_rebuild'] ) ) {
 					str_replace( $link['link_raw'], $link['url_rebuild'], $DocInfo->source );
-					/*
-					if ( $this->logging == 'verbose' )
+					if ( $this->logging > 1 )
 						echo "Corrected " . $link['link_raw'] . ' to ' . $link['url_rebuild'] . "<br>";
 						// TODO: translate the above
-					/**/
 				}
             }
 			$date = wp_remote_retrieve_header( $DocInfo->header, 'last-modified' );
