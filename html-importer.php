@@ -612,6 +612,12 @@ class HTML_Import extends WP_Importer {
 		// see http://phpcrawl.cuab.de/classreferences/index.html
 		$crawler = apply_filters( 'html_import_phpcrawl_methods', $crawler );
 		
+		$v = SQLite3::version()
+		if ( $v->versionNumber ) {
+			$crawler->setUrlCacheType(PHPCrawlerUrlCacheTypes::URLCACHE_SQLITE);
+		}
+		$crawler->setWorkingDirectory( WP_TEMP_DIR );
+		
 		$crawler->go();
 		
 		return $crawler;
