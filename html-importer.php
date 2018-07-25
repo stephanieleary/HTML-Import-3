@@ -487,10 +487,10 @@ class HTML_Import extends WP_Importer {
 	function log_request( $message ) {
 		?>
 		<script>
-			var msg = <?php echo $message; ?>;
-			jQuery('#request_log').val(function(_, val){
-			    return val + msg; 
-			});
+			var msg = "<?php echo $message; ?>";
+			console.log( msg );
+			var newValue = jQuery('#request_log').val() + msg;
+			jQuery('#request_log').val(newValue);
 		</script>
 		<?php
 		flush();
