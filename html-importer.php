@@ -603,7 +603,9 @@ class HTML_Import extends WP_Importer {
 		if ( $depth ) {
 			$crawler->setCrawlingDepthLimit( absint( $depth ) );
 		}
-
+		
+		// Limit the crawler to 100 requests per minute; allow plugins to override
+		$crawler->setRequestDelay( apply_filters( 'html_import_crawler_request_delay', 60/100 ) );
 		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 		
 		// Allow plugins to add settings to the crawler
