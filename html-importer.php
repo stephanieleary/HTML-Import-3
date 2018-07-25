@@ -32,6 +32,7 @@ class HTML_Import extends WP_Importer {
 	var $logging = 0;
 	var $file_counter = 0;
 	var $attachment_counter = 0;
+	var $restrict_to_sitemap = false;
 
 	function header() {
 		echo '<div class="wrap">';
@@ -442,21 +443,6 @@ class HTML_Import extends WP_Importer {
 		return get_posts( $args );
 	}
 	
-	function crawl_sitemap() {
-		if ( !is_array( $this->sitemap ) )
-			return;
-		
-		$total = count( $this->sitemap );
-
-		foreach ( $this->sitemap as $index => $url_info ) {
-			$id = $this->import_single_url( $url_info['url'] );
-			$percentage = round( ( $index + 1 ) / $total * 100 );
-			$this->display_progress( $percentage );
-			sleep(.1); // be polite to other people's servers
-		}
-		echo __( '<br />Done importing.', 'import-html-pages' );
-	}
-	
 	function display_progress_bar() {
 		echo '<div class="progress">
 		  <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"> 
@@ -502,6 +488,7 @@ class HTML_Import extends WP_Importer {
 			// user might have entered the sitemap URL directly
 			$filename = basename( $this->options['get_path'] );
 			if ( $filename == 'sitemap.xml' || $filename == 'sitemap.xml.gz' ) {
+				$this->restrict_to_sitemap = true;
 				$response = wp_remote_get( $this->options['get_path'] );
 			}
 			else {
@@ -622,6 +609,9 @@ class HTML_Import extends WP_Importer {
 	function receive_content( $DocInfo ) {
 		// handed off from PHPCrawl's handleDocumentInfo() method using 'html_import_receive_file' action
 		// see lib/class.HTMLImportCrawler.php
+		
+		if ( $this->restrict_to_sitemap && ! in_array( $DocInfo->url, $this->sitemap ) )
+			return;
 		
 		$post_exists = $this->get_post_id_by_original_url( $DocInfo->url );
 		

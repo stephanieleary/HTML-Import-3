@@ -92,6 +92,7 @@ function html_import_options_page() { ?>
 						</p>
 					</td>
 		        </tr>
+
 		    </table>
 		</fieldset>
 		
