@@ -562,7 +562,7 @@ class HTML_Import extends WP_Importer {
 		$elapsed_time = microtime(1) - $this->start_time;
 		if ( $elapsed_time >= $max - 2 ) {
 			// die() aborts the crawler, allowing us to resume
-			wp_die( sprintf( __( 'Reaching max execution time; importer paused. <a class="button button-secondary" href="%s"></a>', 'import-html-pages' ), wp_nonce_url( 'admin.php?import=html&step=1', -1, 'html-import' ); ) );
+			wp_die( sprintf( __( 'Reaching max execution time; importer paused. <a class="button button-secondary" href="%s"></a>', 'import-html-pages' ), wp_nonce_url( 'admin.php?import=html&step=1', -1, 'html-import' ) ) );
 		}
 	}
 	
@@ -631,12 +631,12 @@ class HTML_Import extends WP_Importer {
 			$crawler->setRequestDelay( apply_filters( 'html_import_crawler_request_delay', 60/100 ) );
 			$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
 
-			$v = SQLite3::version()
+			$v = SQLite3::version();
 			if ( $v->versionNumber ) {
 				$crawler->setUrlCacheType(PHPCrawlerUrlCacheTypes::URLCACHE_SQLITE);
 			}
 
-			$crawler->setWorkingDirectory( WP_TEMP_DIR );
+			//$crawler->setWorkingDirectory( WP_TEMP_DIR );
 
 			// Allow plugins to add settings to the crawler
 			// see http://phpcrawl.cuab.de/classreferences/index.html
