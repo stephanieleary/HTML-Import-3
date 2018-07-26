@@ -573,6 +573,7 @@ class HTML_Import extends WP_Importer {
 		$this->options['update_existing'] = apply_filters( 'html_import_update_existing', $this->options['update_existing'] );
 		
 		$crawler = new HTMLImportCrawler();
+		$crawler->enableResumption();
 		
 		if ( false === ( $crawler_id = get_transient( 'html_import_phpcrawler_id' ) ) ) {
 		    $this->options = get_option( 'html_import' );
@@ -581,13 +582,6 @@ class HTML_Import extends WP_Importer {
 			$this->display_progress_area();
 			$crawler->setURL( $this->options['get_path'] );
 			
-			// Disable aggressive linksearch 
-			$crawler->enableAggressiveLinkSearch( false );
-
-			// Dont't let the crawler look for links in script-parts,
-			// html-comments etc. of documents. 
-			$crawler->excludeLinkSearchDocumentSections(   PHPCrawlerLinkSearchDocumentSections::ALL_SPECIAL_SECTIONS );
-
 			// search for links in these file types
 			$crawler->addLinkSearchContentType( "#text/html# i" );
 
@@ -630,17 +624,18 @@ class HTML_Import extends WP_Importer {
 			// Limit the crawler to 100 requests per minute; allow plugins to override
 			$crawler->setRequestDelay( apply_filters( 'html_import_crawler_request_delay', 60/100 ) );
 			$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
-
+/*
 			$v = SQLite3::version();
 			if ( $v->versionNumber ) {
 				$crawler->setUrlCacheType(PHPCrawlerUrlCacheTypes::URLCACHE_SQLITE);
 			}
 
 			//$crawler->setWorkingDirectory( WP_TEMP_DIR );
-
+/**/
 			// Allow plugins to add settings to the crawler
 			// see http://phpcrawl.cuab.de/classreferences/index.html
 			$crawler = apply_filters( 'html_import_phpcrawl_methods', $crawler );
+
 		}
 		else {
 			$crawler->resume( $crawler_id );
