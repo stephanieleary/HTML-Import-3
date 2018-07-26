@@ -28,11 +28,11 @@ class HTML_Import extends WP_Importer {
 	var $sitemap = array();
 	var $file;
 	var $options = array();
-	var $crawler_id = NULL;
 	var $logging = 0;
 	var $file_counter = 0;
 	var $attachment_counter = 0;
 	var $restrict_to_sitemap = false;
+	var $start_time = false;
 
 	function header() {
 		echo '<div class="wrap">';
@@ -557,66 +557,94 @@ class HTML_Import extends WP_Importer {
 		}
 	}
 	
+	function check_runtime() {
+		$max = ini_get( 'max_execution_time' );
+		$elapsed_time = microtime(1) - $this->start_time;
+		if ( $elapsed_time >= $max - 2 ) {
+			// die() aborts the crawler, allowing us to resume
+			wp_die( sprintf( __( 'Reaching max execution time; importer paused. <a class="button button-secondary" href="%s"></a>', 'import-html-pages' ), wp_nonce_url( 'admin.php?import=html&step=1', -1, 'html-import' ); ) );
+		}
+	}
+	
 	function start_phpcrawl() {
-		set_time_limit( 0 );
-		ini_set( 'memory_limit', '2048M' );
+		@ini_set( 'memory_limit', '2048M' );
+		$this->start_time = microtime(1);
+		
 		$this->options['update_existing'] = apply_filters( 'html_import_update_existing', $this->options['update_existing'] );
+		
 		$crawler = new HTMLImportCrawler();
-		$this->crawler_id = $crawler->getCrawlerId();
-		$crawler->setURL( $this->options['get_path'] );
 		
-		// search for links in these file types
-		$crawler->addLinkSearchContentType( "#text/html# i" );
-		
-		// Don't request these file types
-		$crawler->addURLFilterRule( "#\.(js|css|json|xml)$# i" );
-		
-		// download these file types
-		$crawler->addContentTypeReceiveRule( "#text/html# i" );	
-		$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() ); 
-		
-		foreach ( $mimes as $mime ) {
-			if ( 'application/pdf' !== $mime )
-				$crawler->addContentTypeReceiveRule( '#' . (string) $mime . '# i' );
-		}
-		
-		// PDF is buggy for some reason; add the extension explicitly as well as the mime type
-		//$crawler->addContentTypeReceiveRule( "#application/pdf# i" );
-		//$crawler->addContentTypeReceiveRule( "#\.(pdf)$# i" );
+		if ( false === ( $crawler_id = get_transient( 'html_import_phpcrawler_id' ) ) ) {
+		    $this->options = get_option( 'html_import' );
+			$this->logging = apply_filters( 'html_import_logging', 0 );
+			$this->get_sitemap();
+			$this->display_progress_area();
+			$crawler->setURL( $this->options['get_path'] );
+			
+			// Disable aggressive linksearch 
+			$crawler->enableAggressiveLinkSearch( false );
 
-		$crawler->setUserAgentString( apply_filters( 'html_import_user_agent', 'WordPress-HTMLImport3(alpha)' ) );
+			// Dont't let the crawler look for links in script-parts,
+			// html-comments etc. of documents. 
+			$crawler->excludeLinkSearchDocumentSections(   PHPCrawlerLinkSearchDocumentSections::ALL_SPECIAL_SECTIONS );
 
-		// Store and send cookie-data like a browser does
-		$crawler->enableCookieHandling( true );
-		
-		// Obey robots.txt, but allow plugins to override
-		$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', false ) );
+			// search for links in these file types
+			$crawler->addLinkSearchContentType( "#text/html# i" );
 
-		// allow plugins to set a traffic limit
-		$limit = apply_filters( 'html_import_crawler_traffic_limit', 0 );
-		if ( $limit ) {
-			$crawler->setTrafficLimit( absint( $limit ) );
+			// Don't request these file types
+			$crawler->addURLFilterRule( "#\.(js|css|json|xml)$# i" );
+
+			// download these file types
+			$crawler->addContentTypeReceiveRule( "#text/html# i" );	
+			$mimes = apply_filters( 'html_import_allowed_mime_types', get_allowed_mime_types() ); 
+
+			foreach ( $mimes as $mime ) {
+				if ( 'application/pdf' !== $mime )
+					$crawler->addContentTypeReceiveRule( '#' . (string) $mime . '# i' );
+			}
+
+			// PDF is buggy for some reason; add the extension explicitly as well as the mime type
+			//$crawler->addContentTypeReceiveRule( "#application/pdf# i" );
+			//$crawler->addContentTypeReceiveRule( "#\.(pdf)$# i" );
+
+			$crawler->setUserAgentString( apply_filters( 'html_import_user_agent', 'WordPress-HTMLImport3(alpha)' ) );
+
+			// Store and send cookie-data like a browser does
+			$crawler->enableCookieHandling( true );
+
+			// Obey robots.txt, but allow plugins to override
+			$crawler->obeyRobotsTxt( apply_filters( 'html_import_crawler_obey_robots_file', false ) );
+
+			// allow plugins to set a traffic limit
+			$limit = apply_filters( 'html_import_crawler_traffic_limit', 0 );
+			if ( $limit ) {
+				$crawler->setTrafficLimit( absint( $limit ) );
+			}
+
+			// Allow plugins to set crawler depth
+			$depth = apply_filters( 'html_import_crawler_depth', NULL );
+			if ( $depth ) {
+				$crawler->setCrawlingDepthLimit( absint( $depth ) );
+			}
+
+			// Limit the crawler to 100 requests per minute; allow plugins to override
+			$crawler->setRequestDelay( apply_filters( 'html_import_crawler_request_delay', 60/100 ) );
+			$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
+
+			$v = SQLite3::version()
+			if ( $v->versionNumber ) {
+				$crawler->setUrlCacheType(PHPCrawlerUrlCacheTypes::URLCACHE_SQLITE);
+			}
+
+			$crawler->setWorkingDirectory( WP_TEMP_DIR );
+
+			// Allow plugins to add settings to the crawler
+			// see http://phpcrawl.cuab.de/classreferences/index.html
+			$crawler = apply_filters( 'html_import_phpcrawl_methods', $crawler );
 		}
-		
-		// Allow plugins to set crawler depth
-		$depth = apply_filters( 'html_import_crawler_depth', NULL );
-		if ( $depth ) {
-			$crawler->setCrawlingDepthLimit( absint( $depth ) );
+		else {
+			$crawler->resume( $crawler_id );
 		}
-		
-		// Limit the crawler to 100 requests per minute; allow plugins to override
-		$crawler->setRequestDelay( apply_filters( 'html_import_crawler_request_delay', 60/100 ) );
-		$crawler->setFollowMode( absint( $this->options['follow_mode'] ) );
-		
-		// Allow plugins to add settings to the crawler
-		// see http://phpcrawl.cuab.de/classreferences/index.html
-		$crawler = apply_filters( 'html_import_phpcrawl_methods', $crawler );
-		
-		$v = SQLite3::version()
-		if ( $v->versionNumber ) {
-			$crawler->setUrlCacheType(PHPCrawlerUrlCacheTypes::URLCACHE_SQLITE);
-		}
-		$crawler->setWorkingDirectory( WP_TEMP_DIR );
 		
 		$crawler->go();
 		
@@ -629,6 +657,9 @@ class HTML_Import extends WP_Importer {
 		
 		if ( $this->restrict_to_sitemap && ! in_array( $DocInfo->url, $this->sitemap ) )
 			return;
+		
+		// reset time limit with each iteration
+		@set_time_limit( 0 );
 		
 		$post_exists = $this->get_post_id_by_original_url( $DocInfo->url );
 		
@@ -696,6 +727,10 @@ class HTML_Import extends WP_Importer {
 		echo "Data received: ". $this->filesize_format( $report->bytes_received ) . $lb;
 		echo "Process runtime: " . $report->process_runtime . " sec" . $lb;
 		echo "Done." . $lb;
+		
+		delete_transient( 'html_import_phpcrawler_id' );
+		unset( $crawler );
+		unset( $this->sitemap );
 	}
 
 	function dispatch() {
@@ -710,10 +745,6 @@ class HTML_Import extends WP_Importer {
 				break;
 			case 1 :
 				check_admin_referer( 'html-import' );
-				$this->options = get_option( 'html_import' );
-				$this->logging = apply_filters( 'html_import_logging', 0 );
-				$this->get_sitemap();
-				$this->display_progress_area();
 				$crawler = $this->start_phpcrawl();
 				$this->finish_phpcrawl( $crawler );
 				break;
@@ -744,6 +775,7 @@ class HTML_Import extends WP_Importer {
 		add_action( 'admin_print_styles-admin.php', array( &$this, 'importer_scripts_and_styles' ) );
 		add_filter( 'html_import_allowed_mime_types', array( &$this, 'mime_types' ), 1 );
 		add_action( 'html_import_receive_file',  array( &$this, 'receive_content' ) );
+		add_action( 'html_import_check_runtime',  array( &$this, 'check_runtime' ) );
 	}
 }
 

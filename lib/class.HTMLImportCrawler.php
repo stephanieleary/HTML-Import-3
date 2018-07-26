@@ -1,6 +1,14 @@
 <?php
 
 class HTMLImportCrawler extends PHPCrawler {
+	
+	function handleHeaderInfo( PHPCrawlerResponseHeader $header ) {
+		do_action( 'html_import_check_runtime' );
+		$limit = $this->return_bytes( ini_get( 'memory_limit' ) );
+		if ( $header->content_length >= $limit ) {
+			return -1;
+		}  
+	}
 
 	function handleDocumentInfo( PHPCrawlerDocumentInfo $DocInfo ) {
 
@@ -60,5 +68,36 @@ class HTMLImportCrawler extends PHPCrawler {
 				$html_source = $body->save();
 			}
 		}
+	}
+	
+	function return_bytes( $value ) {
+		// only string
+		$unit_byte = preg_replace( '/[^a-zA-Z]/', '', $value );
+		$unit_byte = strtolower( $unit_byte );
+		// only number (allow decimal point)
+		$num_val = preg_replace( '/\D\.\D/', '', $value );
+		switch ( $unit_byte ) {
+			case 'p':	// petabyte
+			case 'pb':
+				$num_val *= 1024;
+			case 't':	// terabyte
+			case 'tb':
+				$num_val *= 1024;
+			case 'g':	// gigabyte
+			case 'gb':
+				$num_val *= 1024;
+			case 'm':	// megabyte
+			case 'mb':
+				$num_val *= 1024;
+			case 'k':	// kilobyte
+			case 'kb':
+				$num_val *= 1024;
+			case 'b':	// byte
+				return $num_val *= 1;
+				break; // make sure
+			default:
+				return false;
+	    }
+	    return false;
 	}
 }
