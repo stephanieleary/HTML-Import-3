@@ -506,7 +506,7 @@ class HTML_Import extends WP_Importer {
 				$response = wp_remote_get( $path );
 				$response_code = wp_remote_retrieve_response_code( $response );
 				if ( 200 !== $response_code || is_wp_error( $response ) ) {
-					$sitemap = trailingslashit( $sitemap_path ) . 'sitemap.xml';
+					$path = trailingslashit( $sitemap_path ) . 'sitemap.xml';
 					$response = wp_remote_get( $path );
 				}
 			}
@@ -579,6 +579,7 @@ class HTML_Import extends WP_Importer {
 		$crawler->enableResumption();
 		
 		if ( false === ( $crawler_id = get_transient( 'html_import_phpcrawler_id' ) ) ) {
+			_e( 'Checking for a sitemap file...<br>', 'html-import' );
 		    $this->options = get_option( 'html_import' );
 			$this->logging = apply_filters( 'html_import_logging', 0 );
 			$this->get_sitemap();
