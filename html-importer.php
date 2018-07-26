@@ -452,7 +452,7 @@ class HTML_Import extends WP_Importer {
 		  <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"> 
 			<span id="valuenow">0%</span> 
 		  </div></div>';
-		flush();
+		ob_flush(); flush();
 	}
 	
 	function display_progress_area() {
@@ -461,7 +461,7 @@ class HTML_Import extends WP_Importer {
 		echo '<p class="progress-report">'._e(' Files: ', 'import-html-pages' ).'<span class="progress-file"> </span></p>';
 		echo '<p class="progress-report">'._e(' Attachments: ', 'import-html-pages' ).'<span class="progress-attachment"> </span></p>';
 		echo '<p><textarea id="request_log"></textarea></p>';
-		flush();
+		ob_flush(); flush();
 	}
 	
 	function display_progress( $percentage ) { 
@@ -473,7 +473,7 @@ class HTML_Import extends WP_Importer {
 			jQuery( ".progress-bar" ).attr( 'aria-valuenow', percentage );
 		</script>
 		<?php
-		flush();
+		ob_flush(); flush();
 	}
 	
 	function display_counter( $count, $type = 'file' ) {
@@ -484,7 +484,7 @@ class HTML_Import extends WP_Importer {
 			jQuery( ".progress-report .progress-" + type ).html( count );
 		</script>
 		<?php
-		flush();
+		ob_flush(); flush();
 	}
 	
 	function get_sitemap( $path = NULL ) {
@@ -536,6 +536,11 @@ class HTML_Import extends WP_Importer {
 			echo $error_message;
 		}
 		
+		if ( wp_remote_retrieve_response_code( $response ) == 404 ) {
+			_e( 'Sitemap not found.<br>', 'import-html-pages' );
+			ob_flush(); flush();
+		}
+		
 	}
 	
 	function get_sitemap_urls( $urlset ) {
@@ -580,10 +585,12 @@ class HTML_Import extends WP_Importer {
 		
 		if ( false === ( $crawler_id = get_transient( 'html_import_phpcrawler_id' ) ) ) {
 			_e( 'Checking for a sitemap file...<br>', 'html-import' );
+			ob_flush(); flush();
 		    $this->options = get_option( 'html_import' );
 			$this->logging = apply_filters( 'html_import_logging', 0 );
 			$this->get_sitemap();
 			$this->display_progress_area();
+			ob_flush(); flush();
 			$crawler->setURL( $this->options['get_path'] );
 			
 			// search for links in these file types
