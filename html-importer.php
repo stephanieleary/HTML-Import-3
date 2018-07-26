@@ -559,6 +559,9 @@ class HTML_Import extends WP_Importer {
 	
 	function check_runtime() {
 		$max = ini_get( 'max_execution_time' );
+		if ( $max == 0 )
+			return;
+			
 		$elapsed_time = microtime(1) - $this->start_time;
 		if ( $elapsed_time >= $max - 2 ) {
 			// die() aborts the crawler, allowing us to resume
