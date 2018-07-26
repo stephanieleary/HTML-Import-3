@@ -565,7 +565,7 @@ class HTML_Import extends WP_Importer {
 		$elapsed_time = microtime(1) - $this->start_time;
 		if ( $elapsed_time >= $max - 2 ) {
 			// die() aborts the crawler, allowing us to resume
-			wp_die( sprintf( __( 'Reaching max execution time; importer paused. <a class="button button-secondary" href="%s"></a>', 'import-html-pages' ), wp_nonce_url( 'admin.php?import=html&step=1', -1, 'html-import' ) ) );
+			wp_die( sprintf( __( 'Reaching max execution time; importer paused. <a class="button button-primary" href="%s">Resume</a>', 'import-html-pages' ), wp_nonce_url( 'admin.php?import=html&step=1', -1, 'html-import' ) ) );
 		}
 	}
 	
